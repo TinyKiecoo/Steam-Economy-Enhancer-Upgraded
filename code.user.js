@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         Steam Economy Enhancer
+// @name         Steam-Economy-Enhancer-Upgraded
 // @icon         data:image/svg+xml,%0A%3Csvg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" clip-rule="evenodd" viewBox="0 0 267 267"%3E%3Ccircle cx="133.3" cy="133.3" r="133.3" fill="%2326566c"/%3E%3Cpath fill="%23ebebeb" fill-rule="nonzero" d="m50 133 83-83 84 83-84 84-83-84Zm83 62 62-61-62-62v123Z"/%3E%3C/svg%3E
-// @namespace    https://github.com/Nuklon
-// @author       Nuklon
+// @namespace    https://github.com/TinyKiecoo
+// @author       TinyKiecoo
 // @license      MIT
-// @version      7.4.1
+// @version      7.5.0
 // @description  Enhances the Steam Inventory and Steam Market.
 // @match        https://steamcommunity.com/id/*/inventory*
 // @match        https://steamcommunity.com/profiles/*/inventory*
@@ -14,10 +14,7 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/async/3.2.6/async.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/luxon/3.5.0/luxon.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/list.js/2.3.1/list.js
 // @require      https://raw.githubusercontent.com/kapetan/jquery-observe/ca67b735bb3ae8d678d1843384ebbe7c02466c61/jquery-observe.js
-// @require      https://raw.githubusercontent.com/rmariuzzo/checkboxes.js/91bec667e9172ceb063df1ecb7505e8ed0bae9ba/src/jquery.checkboxes.js
 // @grant        unsafeWindow
 // @homepageURL  https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
 // @homepage     https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
@@ -26,8 +23,37 @@
 // @updateURL    https://raw.githubusercontent.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js
 // ==/UserScript==
 
+/*
+ * Steam-Economy-Enhancer-Upgraded is a fork of Steam Economy Enhancer by Nuklon.
+ * Upstream: https://github.com/Nuklon/Steam-Economy-Enhancer
+ * Original copyright and MIT permission notice are retained below.
+ *
+ * MIT License
+ *
+ * Copyright (c) 2016
+ * Copyright (c) 2026 TinyKiecoo (fork modifications)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 /* disable some eslint rules until the code is cleaned up */
-/* global unsafeWindow, luxon, jQuery, async, List, localforage */
+/* global unsafeWindow, jQuery, async, localforage */
 /* eslint no-undef: off */
 
 // jQuery is already added by Steam, force no conflict mode.
@@ -36,8 +62,7 @@
 
     // The SSR market has neither the legacy DOM nor GetCurrencyCode/g_rgWalletInfo.
     // Keep its initialization ahead of all code which requires those globals.
-    if (location.pathname.startsWith('/market') &&
-        (unsafeWindow.SSR || document.getElementById('valve-ssr-data'))) {
+    if (location.pathname.startsWith('/market')) {
         initializeModernMarket();
         return;
     }
@@ -244,7 +269,7 @@
             const response = await fetch(url, {
                 credentials: 'same-origin',
                 ...options,
-                signal: AbortSignal.any([state.controller.signal, AbortSignal.timeout(30000)])
+                signal: AbortSignal.any([state.controller.signal, ...(options.signal ? [options.signal] : []), AbortSignal.timeout(30000)])
             });
             if (!response.ok) {
                 const error = new Error(response.status === 429 ? 'Too many Steam requests. Please try again later (429).' : `Steam request failed (${response.status}).`);
@@ -258,9 +283,9 @@
             }
         }
 
-        async function queryAction(name, args, state) {
+        async function queryAction(name, args, state, signal) {
             const params = new URLSearchParams({ q: name, qp: JSON.stringify(args) });
-            const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' } });
+            const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' }, signal });
             if (result.data?.eResult !== 1) {
                 throw new Error(`Steam ${name} failed (${result.data?.eResult ?? 'no data'}).`);
             }
@@ -371,8 +396,23 @@
             }
         }
 
-        function pause(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
+        function pause(ms, signal) {
+            return new Promise((resolve, reject) => {
+                if (signal?.aborted) {
+                    reject(signal.reason);
+                    return;
+                }
+                const done = () => {
+                    signal?.removeEventListener('abort', abort);
+                    resolve();
+                };
+                const timer = setTimeout(done, ms);
+                const abort = () => {
+                    clearTimeout(timer);
+                    reject(signal.reason);
+                };
+                signal?.addEventListener('abort', abort, { once: true });
+            });
         }
 
         function searchText(row) {
@@ -668,7 +708,8 @@
             state.page = 1;
             state.pageSize = 500;
             state.total = 0;
-            state.pager = element('form', null, 'see-toolbar');
+            historySearchUI(state);
+            state.pager = element('form', null, 'see-toolbar see-history-pagination');
             state.host.append(state.pager);
             const table = makeTable(state);
             const head = table.createTHead().insertRow();
@@ -677,11 +718,258 @@
             loadHistory(state, 1);
         }
 
+        function historySearchUI(state) {
+            const form = element('form', null, 'see-toolbar see-history-search');
+            const field = (text, type, ariaLabel) => {
+                const label = element('label', text);
+                const input = element('input');
+                input.type = type;
+                input.setAttribute('aria-label', ariaLabel);
+                label.append(input);
+                form.append(label);
+                return input;
+            };
+            state.historyName = field('Item name', 'search', 'Search history by item name');
+            state.historyName.placeholder = 'Enter all or part of an item name';
+            state.historyFrom = field('From date', 'date', 'From date');
+            state.historyTo = field('To date', 'date', 'To date');
+            state.historySearchButton = button('Start search', () => {
+                if (state.historySearchRun) {
+                    state.historySearchButton.disabled = true;
+                    state.status.textContent = 'Stopping search…';
+                    state.historySearchRun.controller.abort();
+                } else {
+                    searchHistory(state);
+                }
+            }, form);
+            state.historyClear = button('Clear search', () => {
+                state.historySearchRun?.controller.abort();
+                state.historySearchRun = null;
+                state.searchResults = null;
+                state.historyName.value = '';
+                state.historyFrom.value = '';
+                state.historyTo.value = '';
+                loadHistory(state, Math.floor((state.historyBrowseStart || 0) / state.pageSize) + 1);
+            }, form);
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                state.historySearchButton.click();
+            });
+            state.host.append(form, element('p', 'Search by item name, transaction date, or both. Dates use your local time; the end date is included.', 'see-status'));
+        }
+
+        function syncHistorySearch(state) {
+            const active = Boolean(state.historySearchRun);
+            state.historySearchButton.textContent = active ? 'Stop search' : 'Start search';
+            state.historySearchButton.disabled = state.loading;
+            state.historyClear.disabled = state.loading || (!active && state.searchResults == null);
+            [state.historyName, state.historyFrom, state.historyTo].forEach(input => {
+                input.disabled = active || state.loading;
+            });
+        }
+
+        async function legacyHistoryBatch(state, start, count, signal) {
+            const data = await jsonRequest(`/market/myhistory/render/?query=&start=${start}&count=${count}`, state, { signal });
+            if (!data.success || !Number.isFinite(Number(data.total_count)) || Number(data.start) !== start) {
+                throw new Error('Steam did not return valid market history. Please check that you are signed in.');
+            }
+            const rows = parseLegacy(data, 'history');
+            const total = Number(data.total_count);
+            if (!rows.length && start < total) {
+                throw new Error('Steam returned an empty page. Please try again later.');
+            }
+            return { rows, total };
+        }
+
+        function historyEventRow(event) {
+            const description = event.description || {};
+            const purchase = event.purchase || {};
+            const bought = event.event_type === 4;
+            const price = bought
+                ? Number(purchase.paid_amount || 0) + Number(purchase.paid_fee || 0) + Number(purchase.added_tax || 0)
+                : Number(purchase.received_amount || 0);
+            return {
+                name: description.market_name || description.name || '',
+                type: description.type || '',
+                game: description.tags?.find(tag => tag.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? 'Steam Community Items' : ''),
+                description,
+                href: itemURL(description),
+                image: itemImage(description),
+                dateText: dateText(Number(event.time_listing)),
+                actedText: dateText(Number(event.time_event)),
+                priceText: money(price, bought ? purchase.currencyid : purchase.received_currencyid),
+                action: bought ? 'Purchased' : 'Sold'
+            };
+        }
+
+        function historyRows(state, rows) {
+            state.body.replaceChildren();
+            rows.forEach(row => {
+                const tr = element('tr');
+                tr.append(itemCell(row), ...[row.dateText, row.actedText, row.priceText, row.action].map(text => element('td', text)));
+                state.body.append(tr);
+            });
+            if (!rows.length) {
+                const cell = element('td', state.searchResults == null ? 'No market history.' : 'No matching records found.');
+                cell.colSpan = 5;
+                state.body.insertRow().append(cell);
+            }
+        }
+
+        function showHistoryResults(state) {
+            const pages = Math.max(1, Math.ceil(state.searchResults.length / state.pageSize));
+            state.page = Math.min(state.page, pages);
+            const start = (state.page - 1) * state.pageSize;
+            historyRows(state, state.searchResults.slice(start, start + state.pageSize));
+            renderPager(state);
+        }
+
+        async function paceHistorySearch(run) {
+            if (run.requests++ > 0) {
+                await pause(1000, run.controller.signal);
+            }
+            run.controller.signal.throwIfAborted();
+        }
+
+        async function historySearchPage(state, run, page) {
+            if (!run.pages.has(page)) {
+                await paceHistorySearch(run);
+                // Steam requires exactly 50 at offset 0, and 25 for subsequent requests.
+                const start = page * 25;
+                const data = await queryAction('QueryMyHistory', [start, start === 0 ? 50 : 25], state, run.controller.signal);
+                const events = data.rgEvents;
+                if (!Array.isArray(events) || !events.length || events.some(event => !Number.isFinite(Number(event.time_event)) || Number(event.time_event) <= 0)) {
+                    throw new Error('Steam did not return complete transaction dates. The date search cannot continue.');
+                }
+                for (let i = 0; i < events.length; i += 25) {
+                    run.pages.set(page + i / 25, events.slice(i, i + 25));
+                }
+            }
+            return run.pages.get(page);
+        }
+
+        async function historyDateBound(state, run, totalPages, before, useOldest) {
+            let low = 0;
+            let high = totalPages;
+            while (low < high) {
+                run.controller.signal.throwIfAborted();
+                const middle = Math.floor((low + high) / 2);
+                const events = await historySearchPage(state, run, middle);
+                const time = Number((useOldest ? events.at(-1) : events[0]).time_event);
+                if (time < before) {
+                    high = middle;
+                } else {
+                    low = middle + 1;
+                }
+            }
+            return low;
+        }
+
+        async function searchHistory(state) {
+            if (state.loading || state.historySearchRun) {
+                return;
+            }
+            const name = state.historyName.value.normalize('NFKC').toLocaleLowerCase(locale).trim();
+            const from = state.historyFrom.value;
+            const to = state.historyTo.value;
+            if (!name && !from && !to) {
+                state.status.textContent = 'Enter an item name, a start date or an end date.';
+                return;
+            }
+            const since = from ? new Date(`${from}T00:00:00`).getTime() : null;
+            const endDate = to ? new Date(`${to}T00:00:00`) : null;
+            endDate?.setDate(endDate.getDate() + 1);
+            const until = endDate?.getTime() ?? null;
+            if (since != null && !Number.isFinite(since) || until != null && !Number.isFinite(until) || since != null && until != null && since >= until) {
+                state.status.textContent = 'Choose a valid date range with the start date on or before the end date.';
+                return;
+            }
+            if (state.searchResults == null) {
+                state.historyBrowseStart = (state.page - 1) * state.pageSize;
+            }
+            const run = { controller: new AbortController(), pages: new Map(), requests: 0, scanned: 0, target: 0 };
+            state.historySearchRun = run;
+            state.searchResults = [];
+            state.page = 1;
+            showHistoryResults(state);
+            state.status.textContent = 'Starting search…';
+            try {
+                await paceHistorySearch(run);
+                const { total } = await legacyHistoryBatch(state, 0, 1, run.controller.signal);
+                const matchesName = row => row.name.normalize('NFKC').toLocaleLowerCase(locale).includes(name);
+                const update = () => {
+                    if (state.controller.signal.aborted || run.controller.signal.aborted) {
+                        return;
+                    }
+                    showHistoryResults(state);
+                    state.status.textContent = `Searching… ${run.scanned.toLocaleString(locale)} / ${run.target.toLocaleString(locale)} records checked · ${state.searchResults.length.toLocaleString(locale)} matches.`;
+                };
+                if (since == null && until == null) {
+                    run.target = total;
+                    let offset = 0;
+                    while (offset < total) {
+                        await paceHistorySearch(run);
+                        const batch = await legacyHistoryBatch(state, offset, Math.min(500, total - offset), run.controller.signal);
+                        run.controller.signal.throwIfAborted();
+                        state.searchResults.push(...batch.rows.filter(matchesName));
+                        offset += batch.rows.length;
+                        run.scanned += batch.rows.length;
+                        update();
+                    }
+                } else if (total) {
+                    state.status.textContent = 'Locating records in the selected date range…';
+                    const totalPages = Math.ceil(total / 25);
+                    const first = until == null ? 0 : await historyDateBound(state, run, totalPages, until, true);
+                    const last = since == null ? totalPages : await historyDateBound(state, run, totalPages, since, false);
+                    run.target = Math.max(0, Math.min(total, last * 25) - first * 25);
+                    for (let page = first; page < last; page++) {
+                        const events = await historySearchPage(state, run, page);
+                        run.controller.signal.throwIfAborted();
+                        for (const event of events) {
+                            const time = Number(event.time_event);
+                            if ((since == null || time >= since) && (until == null || time < until)) {
+                                const row = historyEventRow(event);
+                                if (matchesName(row)) {
+                                    state.searchResults.push(row);
+                                }
+                            }
+                        }
+                        run.scanned += events.length;
+                        run.pages.delete(page);
+                        update();
+                    }
+                }
+                state.status.textContent = `Search complete. Checked ${run.scanned.toLocaleString(locale)} records; found ${state.searchResults.length.toLocaleString(locale)} matches.`;
+            } catch (error) {
+                if (!state.controller.signal.aborted && state.historySearchRun === run) {
+                    state.status.textContent = run.controller.signal.aborted
+                        ? `Search stopped. Checked ${run.scanned.toLocaleString(locale)} records; found ${state.searchResults.length.toLocaleString(locale)} matches.`
+                        : `Search stopped: ${error.message} Found ${state.searchResults.length.toLocaleString(locale)} matches. You can start a new search.`;
+                }
+            } finally {
+                if (state.historySearchRun === run) {
+                    state.historySearchRun = null;
+                    if (!state.controller.signal.aborted) {
+                        showHistoryResults(state);
+                    }
+                }
+            }
+        }
+
         function renderPager(state) {
-            const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+            const searching = state.searchResults != null;
+            const total = searching ? state.searchResults.length : state.total;
+            const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
             state.pager.replaceChildren();
             const navigate = (label, page, disabled) => {
-                const node = button(label, () => loadHistory(state, page), state.pager);
+                const node = button(label, () => {
+                    if (searching) {
+                        state.page = page;
+                        showHistoryResults(state);
+                    } else {
+                        loadHistory(state, page);
+                    }
+                }, state.pager);
                 node.disabled = disabled || state.loading;
                 if (page === state.page && /^\d+$/.test(label)) {
                     node.setAttribute('aria-current', 'page');
@@ -713,7 +1001,12 @@
                 event.preventDefault();
                 const page = Number(jump.value);
                 if (Number.isInteger(page) && page >= 1 && page <= totalPages) {
-                    loadHistory(state, page);
+                    if (searching) {
+                        state.page = page;
+                        showHistoryResults(state);
+                    } else {
+                        loadHistory(state, page);
+                    }
                 }
             };
             const size = element('select');
@@ -728,9 +1021,16 @@
             size.addEventListener('change', () => {
                 const firstRecord = (state.page - 1) * state.pageSize;
                 const requestedSize = Number(size.value);
-                loadHistory(state, Math.floor(firstRecord / requestedSize) + 1, requestedSize);
+                if (searching) {
+                    state.pageSize = requestedSize;
+                    state.page = Math.floor(firstRecord / requestedSize) + 1;
+                    showHistoryResults(state);
+                } else {
+                    loadHistory(state, Math.floor(firstRecord / requestedSize) + 1, requestedSize);
+                }
             });
-            state.pager.append(size, element('span', `${state.total.toLocaleString(locale)} ${state.total === 1 ? 'record' : 'records'} / ${totalPages.toLocaleString(locale)} ${totalPages === 1 ? 'page' : 'pages'}`));
+            state.pager.append(size, element('span', `${total.toLocaleString(locale)} ${searching ? 'matches' : total === 1 ? 'record' : 'records'} / ${totalPages.toLocaleString(locale)} ${totalPages === 1 ? 'page' : 'pages'}`));
+            syncHistorySearch(state);
         }
 
         async function loadHistory(state, page, pageSize = state.pageSize) {
@@ -747,16 +1047,9 @@
                 let total;
                 do {
                     const offset = start + rows.length;
-                    const data = await jsonRequest(`/market/myhistory/render/?query=&start=${offset}&count=${pageSize - rows.length}`, state);
-                    if (!data.success || !Number.isFinite(Number(data.total_count)) || Number(data.start) !== offset) {
-                        throw new Error('Steam did not return valid market history. Please check that you are signed in.');
-                    }
-                    total = Number(data.total_count);
-                    const batch = parseLegacy(data, 'history');
-                    if (!batch.length && offset < total) {
-                        throw new Error('Steam returned an empty page. Please try again later.');
-                    }
-                    rows = rows.concat(batch);
+                    const batch = await legacyHistoryBatch(state, offset, pageSize - rows.length);
+                    total = batch.total;
+                    rows = rows.concat(batch.rows);
                     state.status.textContent = `Loading page ${page}: ${rows.length} records…`;
                     if (rows.length < pageSize && start + rows.length < total) {
                         // If Steam clamps a request to 25/100, fill this display page without skipping records.
@@ -773,17 +1066,7 @@
                 }
                 state.page = page;
                 state.pageSize = pageSize;
-                state.body.replaceChildren();
-                rows.forEach(row => {
-                    const tr = element('tr');
-                    tr.append(itemCell(row), ...[row.dateText, row.actedText, row.priceText, row.action].map(text => element('td', text)));
-                    state.body.append(tr);
-                });
-                if (!rows.length) {
-                    const cell = element('td', 'No market history.');
-                    cell.colSpan = 5;
-                    state.body.insertRow().append(cell);
-                }
+                historyRows(state, rows);
                 state.status.textContent = `${total ? start + 1 : 0}–${start + rows.length} / ${total.toLocaleString(locale)} records. Dates are shown as returned by Steam and may omit the year.`;
             } catch (error) {
                 showError(state, error, () => loadHistory(state, page, pageSize));
@@ -810,6 +1093,7 @@
 
         function cleanup() {
             if (view) {
+                view.historySearchRun?.controller.abort();
                 view.controller.abort();
                 view.host.remove();
                 view = null;
@@ -843,7 +1127,7 @@
             const state = { host, path, kind, controller: new AbortController(), rows: [], selected: new Set(), loading: false, busy: false };
             view = state;
             const title = element('div', null, 'see-toolbar');
-            title.append(element('strong', `Steam Economy Enhancer · ${kind === 'history' ? 'Market history' : kind === 'buyorders' ? 'Buy orders' : 'Sell listings'}`));
+            title.append(element('strong', `Steam-Economy-Enhancer-Upgraded · ${kind === 'history' ? 'Market history' : kind === 'buyorders' ? 'Buy orders' : 'Sell listings'}`));
             button('Show original Steam list', () => {
                 suppressedPath = path;
                 cleanup();
@@ -893,6 +1177,10 @@
             .see-market-dialog { color:#e8edf2; background:#192a39; border:1px solid #526779; border-radius:6px; max-width:560px; padding:24px; }
             .see-market-dialog::backdrop { background:#000a; }
             .see-market-dialog input { display:block; width:150px !important; margin-top:8px; }
+            .see-history-search label { display:flex; flex-direction:column; gap:4px; }
+            .see-history-search label:first-child { flex:1; min-width:220px; }
+            .see-history-search input[type=date] { min-width:145px; }
+            .see-history-search button { align-self:end; }
         `);
         const observer = new MutationObserver(records => {
             if (records.every(record => view?.host.contains(record.target))) {
@@ -918,24 +1206,18 @@
     }
     //#endregion Modern market
 
-    const PAGE_MARKET = 0;
-    const PAGE_MARKET_LISTING = 1;
     const PAGE_TRADEOFFER = 2;
     const PAGE_INVENTORY = 3;
 
     const COLOR_ERROR = '#8A4243';
     const COLOR_SUCCESS = '#407736';
     const COLOR_PENDING = '#908F44';
-    const COLOR_PRICE_FAIR = '#496424';
-    const COLOR_PRICE_CHEAP = '#837433';
-    const COLOR_PRICE_EXPENSIVE = '#813030';
     const COLOR_PRICE_NOT_CHECKED = '#26566c';
 
     const ERROR_SUCCESS = null;
     const ERROR_FAILED = 1;
     const ERROR_DATA = 2;
 
-    const marketLists = [];
     let totalNumberOfProcessedQueueItems = 0;
     let totalNumberOfQueuedItems = 0;
     let totalPriceWithFeesOnMarket = 0;
@@ -949,13 +1231,7 @@
     const country = typeof unsafeWindow.g_strCountryCode !== 'undefined' ? unsafeWindow.g_strCountryCode : undefined;
     const isLoggedIn = typeof unsafeWindow.g_rgWalletInfo !== 'undefined' && unsafeWindow.g_rgWalletInfo != null || typeof unsafeWindow.g_bLoggedIn !== 'undefined' && unsafeWindow.g_bLoggedIn;
 
-    const currentPage = window.location.href.includes('.com/market')
-        ? window.location.href.includes('market/listings')
-            ? PAGE_MARKET_LISTING
-            : PAGE_MARKET
-        : window.location.href.includes('.com/tradeoffer')
-            ? PAGE_TRADEOFFER
-            : PAGE_INVENTORY;
+    const currentPage = window.location.href.includes('.com/tradeoffer') ? PAGE_TRADEOFFER : PAGE_INVENTORY;
 
     const market = new SteamMarket(
         unsafeWindow.g_rgAppContextData,
@@ -1465,36 +1741,6 @@
         };
 
         request(url, options, callback);
-    };
-
-    // Removes an item.
-    // Item is the unique item id.
-    SteamMarket.prototype.removeListing = function (item, isBuyOrder, callback /*err, data*/) {
-        const url = isBuyOrder
-            ? `${window.location.origin}/market/cancelbuyorder/`
-            : `${window.location.origin}/market/removelisting/${item}`;
-
-        const options = {
-            method: 'POST',
-            data: {
-                sessionid: readCookie('sessionid'),
-                ...(isBuyOrder ? { buy_orderid: item } : {})
-            },
-            responseType: 'json'
-        };
-
-        request(
-            url,
-            options,
-            (error, data) => {
-                if (error) {
-                    callback(ERROR_FAILED);
-                    return;
-                }
-
-                callback(ERROR_SUCCESS, data);
-            }
-        );
     };
 
     // Get the price history for an item.
@@ -2724,7 +2970,7 @@
                 const baseUrl = `${window.location.origin}/market/multisell`;
                 const redirectUrl = `${baseUrl}?appid=${appid}&contextid=${contextid}${itemsString}`;
 
-                const dialog = unsafeWindow.ShowDialog('Steam Economy Enhancer', `<iframe frameBorder="0" height="650" width="900" src="${redirectUrl}"></iframe>`);
+                const dialog = unsafeWindow.ShowDialog('Steam-Economy-Enhancer-Upgraded', `<iframe frameBorder="0" height="650" width="900" src="${redirectUrl}"></iframe>`);
                 dialog.OnDismiss(() => {
                     items.forEach((item) => {
                         const itemId = item.assetid || item.id;
@@ -3237,7 +3483,7 @@
 
             $('#see_settings').remove();
             $('#global_action_menu').
-                prepend('<span id="see_settings"><a href="javascript:void(0)">⬖ Steam Economy Enhancer</a></span>');
+                prepend('<span id="see_settings"><a href="javascript:void(0)">⬖ Steam-Economy-Enhancer-Upgraded</a></span>');
             $('#see_settings').on('click', '*', () => openSettings());
 
             const appId = getActiveInventory().m_appid;
@@ -3476,1179 +3722,6 @@
                 }
             );
         }
-    }
-    //#endregion
-
-    //#region Market
-    if (currentPage == PAGE_MARKET || currentPage == PAGE_MARKET_LISTING) {
-        const marketListingsRelistedAssets = [];
-        let marketProgressBar;
-
-        function increaseMarketProgressMax() {
-            let value = marketProgressBar.max;
-
-            // Reset the progress bar if it already completed
-            if (marketProgressBar.value === value) {
-                marketProgressBar.value = 0;
-                value = 0;
-            }
-
-            marketProgressBar.max = value + 1;
-            marketProgressBar.removeAttribute('hidden');
-        }
-
-        function increaseMarketProgress() {
-            marketProgressBar.value += 1;
-
-            if (marketProgressBar.value === marketProgressBar.max) {
-                marketProgressBar.setAttribute('hidden', 'true');
-            }
-        }
-
-        // Match number part from any currency format
-        const getPriceValueAsInt = listing =>
-            unsafeWindow.GetPriceValueAsInt(
-                listing.match(/(?<price>[0-9][0-9 .,]*)/)?.groups?.price ?? 0
-            );
-
-        const marketListingsQueue = async.queue((listing, next) => {
-            marketListingsQueueWorker(
-                listing,
-                false,
-                (success, cached) => {
-                    const callback = () => {
-                        increaseMarketProgress();
-                        next();
-                    };
-
-                    if (success) {
-                        setTimeout(callback, cached ? 0 : getRandomInt(1000, 1500));
-                    } else {
-                        setTimeout(() => marketListingsQueueWorker(listing, true, callback), cached ? 0 : getRandomInt(30000, 45000));
-                    }
-                }
-            );
-        }, 1);
-
-
-        function marketListingsQueueWorker(listing, ignoreErrors, callback) {
-            const asset = unsafeWindow.g_rgAssets[listing.appid][listing.contextid][listing.assetid];
-
-            // An asset:
-            //{
-            // "currency" : 0,
-            // "appid" : 753,
-            // "contextid" : "6",
-            // "id" : "4363079664",
-            // "classid" : "2228526061",
-            // "instanceid" : "0",
-            // "amount" : "1",
-            // "status" : 2,
-            // "original_amount" : "1",
-            // "background_color" : "",
-            // "icon_url" : "xx",
-            // "icon_url_large" : "xxx",
-            // "descriptions" : [{
-            //   "value" : "Their dense, shaggy fur conceals the presence of swams of moogamites, purple scaly skin, and more nipples than one would expect."
-            //  }
-            // ],
-            // "tradable" : 1,
-            // "owner_actions" : [{
-            //   "link" : "http://steamcommunity.com/my/gamecards/443880/",
-            //   "name" : "View badge progress"
-            //  }, {
-            //   "link" : "javascript:GetGooValue( '%contextid%', '%assetid%', 443880, 7, 0 )",
-            //   "name" : "Turn into Gems..."
-            //  }
-            // ],
-            // "name" : "Wook",
-            // "type" : "Loot Rascals Trading Card",
-            // "market_name" : "Wook",
-            // "market_hash_name" : "443880-Wook",
-            // "market_fee_app" : 443880,
-            // "commodity" : 1,
-            // "market_tradable_restriction" : 7,
-            // "market_marketable_restriction" : 7,
-            // "marketable" : 1,
-            // "app_icon" : "xxxx",
-            // "owner" : 0
-            //}
-
-            const market_hash_name = getMarketHashName(asset);
-            const appid = listing.appid;
-
-            let listingUI = getListingFromLists(listing.listingid);
-            if (listingUI == null) {
-                logConsole(`Listing ${listing.listingid} not found in the lists, skipping.`);
-
-                callback(true, true);
-
-                return;
-            }
-
-            listingUI = $(listingUI.elm);
-
-            const game_name = asset.type;
-            const price = getPriceValueAsInt($('.market_listing_price > span:nth-child(1) > span:nth-child(1)', listingUI).text());
-
-            if (price <= getSettingWithDefault(SETTING_PRICE_MIN_CHECK_PRICE) * 100 || listingUI.hasClass('removing')) {
-                $('.market_listing_my_price', listingUI).last().css('background', COLOR_PRICE_NOT_CHECKED);
-                $('.market_listing_my_price', listingUI).last().prop('title', 'The price is not checked.');
-                listingUI.addClass('not_checked');
-
-                return callback(true, true);
-            }
-
-            const priceInfo = getPriceInformationFromItem(asset);
-            const item = {
-                appid: parseInt(appid),
-                description: {
-                    market_hash_name: market_hash_name
-                }
-            };
-
-            let failed = 0;
-
-            market.getPriceHistory(
-                item,
-                true,
-                (errorPriceHistory, history, cachedHistory) => {
-                    if (errorPriceHistory) {
-                        logConsole(`Failed to get price history for ${game_name}`);
-
-                        if (errorPriceHistory != ERROR_SUCCESS) {
-                            failed += 1;
-                        }
-                    }
-
-                    market.getOrderBook(
-                        item,
-                        true,
-                        (errorOrderBook, orderbook, cachedListings) => {
-                            if (errorOrderBook) {
-                                logConsole(`Failed to get order book for ${game_name}`);
-
-                                if (errorOrderBook != ERROR_SUCCESS) {
-                                    failed += 1;
-                                }
-                            }
-
-                            if (failed > 0 && !ignoreErrors) {
-                                return callback(false, cachedHistory && cachedListings);
-                            }
-
-                            // Shows the highest buy order price on the market listings.
-                            // The 'orderbook.highest_buy_order' is not reliable as Steam is caching this value, but it gives some idea for older titles/listings.
-                            const highestBuyOrderPrice = orderbook == null || orderbook.highest_buy_order == null
-                                ? '-'
-                                : formatPrice(orderbook.highest_buy_order);
-                            $(
-                                '.market_table_value > span:nth-child(1) > span:nth-child(1) > span:nth-child(1)',
-                                listingUI
-                            ).append(` ➤ <span title="This is likely the highest buy order price.">${highestBuyOrderPrice
-                                }</span>`);
-
-                            logConsole('============================');
-                            logConsole(JSON.stringify(listing));
-                            logConsole(`${game_name}: ${asset.name}`);
-                            logConsole(`Current price: ${price / 100.0}`);
-
-                            // Calculate two prices here, one without the offset and one with the offset.
-                            // The price without the offset is required to not relist the item constantly when you have the lowest price (i.e., with a negative offset).
-                            // The price with the offset should be used for relisting so it will still apply the user-set offset.
-
-                            const sellPriceWithoutOffset = calculateSellPriceBeforeFees(
-                                history,
-                                orderbook,
-                                false,
-                                priceInfo.minPriceBeforeFees,
-                                priceInfo.maxPriceBeforeFees
-                            );
-                            const sellPriceWithOffset = calculateSellPriceBeforeFees(
-                                history,
-                                orderbook,
-                                true,
-                                priceInfo.minPriceBeforeFees,
-                                priceInfo.maxPriceBeforeFees
-                            );
-
-                            const sellPriceWithoutOffsetWithFees = market.getPriceIncludingFees(sellPriceWithoutOffset);
-
-                            logConsole(`Calculated price: ${sellPriceWithoutOffsetWithFees / 100.0} (${sellPriceWithoutOffset / 100.0})`);
-
-                            listingUI.addClass(`price_${sellPriceWithOffset}`);
-
-                            $('.market_listing_my_price', listingUI).last().prop(
-                                'title',
-                                `The best price is ${formatPrice(sellPriceWithoutOffsetWithFees)}.`
-                            );
-
-                            if (sellPriceWithoutOffsetWithFees < price) {
-                                logConsole('Sell price is too high.');
-
-                                $('.market_listing_my_price', listingUI).last().
-                                    css('background', COLOR_PRICE_EXPENSIVE);
-                                listingUI.addClass('overpriced');
-
-                                if (getSettingWithDefault(SETTING_RELIST_AUTOMATICALLY) == 1) {
-                                    queueOverpricedItemListing(listing.listingid);
-                                }
-                            } else if (sellPriceWithoutOffsetWithFees > price) {
-                                logConsole('Sell price is too low.');
-
-                                $('.market_listing_my_price', listingUI).last().css('background', COLOR_PRICE_CHEAP);
-                                listingUI.addClass('underpriced');
-                            } else {
-                                logConsole('Sell price is fair.');
-
-                                $('.market_listing_my_price', listingUI).last().css('background', COLOR_PRICE_FAIR);
-                                listingUI.addClass('fair');
-                            }
-
-                            return callback(true, cachedHistory && cachedListings);
-                        }
-                    );
-                }
-            );
-        }
-
-        const marketOverpricedQueue = async.queue(
-            (item, next) => {
-                marketOverpricedQueueWorker(
-                    item,
-                    false,
-                    (success) => {
-                        const callback = () => {
-                            increaseMarketProgress();
-                            next();
-                        };
-
-                        if (success) {
-                            setTimeout(callback, getRandomInt(1000, 1500));
-                        } else {
-                            setTimeout(() => marketOverpricedQueueWorker(item, true, callback), getRandomInt(30000, 45000));
-                        }
-                    }
-                );
-            },
-            1
-        );
-
-        function marketOverpricedQueueWorker(item, ignoreErrors, callback) {
-            let listingUI = getListingFromLists(item.listing)
-            if (listingUI == null) {
-                logConsole(`Listing ${item.listing} not found in the lists, skipping.`);
-
-                callback(true);
-
-                return;
-            }
-
-            listingUI = listingUI.elm;
-
-            market.removeListing(
-                item.listing, false,
-                (errorRemove) => {
-                    if (!errorRemove) {
-                        $('.actual_content', listingUI).css('background', COLOR_PENDING);
-
-                        setTimeout(() => {
-                            const itemName = $('.market_listing_item_name_link', listingUI).first().attr('href');
-                            const marketHashNameIndex = itemName.lastIndexOf('/') + 1;
-                            const marketHashName = itemName.substring(marketHashNameIndex);
-                            const decodedMarketHashName = decodeURIComponent(itemName.substring(marketHashNameIndex));
-                            let newAssetId = -1;
-
-                            unsafeWindow.RequestFullInventory(`${market.inventoryUrl + item.appid}/${item.contextid}/`, {}, null, null, (transport) => {
-                                if (transport.responseJSON && transport.responseJSON.success) {
-                                    const inventory = transport.responseJSON.rgInventory;
-
-                                    for (const child in inventory) {
-                                        if (marketListingsRelistedAssets.indexOf(child) == -1 && inventory[child].appid == item.appid && (inventory[child].market_hash_name == decodedMarketHashName || inventory[child].market_hash_name == marketHashName)) {
-                                            newAssetId = child;
-                                            break;
-                                        }
-                                    }
-
-                                    if (newAssetId == -1) {
-                                        $('.actual_content', listingUI).css('background', COLOR_ERROR);
-                                        return callback(false);
-                                    }
-
-                                    item.assetid = newAssetId;
-                                    marketListingsRelistedAssets.push(newAssetId);
-
-                                    market.sellItem(
-                                        item,
-                                        item.sellPrice,
-                                        (errorSell) => {
-                                            if (!errorSell) {
-                                                $('.actual_content', listingUI).css('background', COLOR_SUCCESS);
-
-                                                setTimeout(() => {
-                                                    removeListingFromLists(item.listing);
-                                                }, 3000);
-
-                                                return callback(true);
-                                            } else {
-                                                $('.actual_content', listingUI).css('background', COLOR_ERROR);
-                                                return callback(false);
-                                            }
-                                        }
-                                    );
-
-                                } else {
-                                    $('.actual_content', listingUI).css('background', COLOR_ERROR);
-                                    return callback(false);
-                                }
-                            });
-                        }, getRandomInt(1500, 2500)); // Wait a little to make sure the item is returned to inventory.
-                    } else {
-                        $('.actual_content', listingUI).css('background', COLOR_ERROR);
-                        return callback(false);
-                    }
-                }
-            );
-        }
-
-        // Queue an overpriced item listing to be relisted.
-        function queueOverpricedItemListing(listingid) {
-            const assetInfo = getAssetInfoFromListingId(listingid);
-            const listingUI = $(getListingFromLists(listingid).elm);
-            let price = -1;
-
-            const items = $(listingUI).attr('class').split(' ');
-            for (const i in items) {
-                if (items[i].toString().includes('price_')) {
-                    price = parseInt(items[i].toString().replace('price_', ''));
-                }
-            }
-
-            if (price > 0) {
-                marketOverpricedQueue.push({
-                    listing: listingid,
-                    assetid: assetInfo.assetid,
-                    contextid: assetInfo.contextid,
-                    appid: assetInfo.appid,
-                    sellPrice: price
-                });
-                increaseMarketProgressMax();
-            }
-        }
-
-        const marketRemoveQueue = async.queue(
-            (listingid, next) => {
-                marketRemoveQueueWorker(
-                    listingid,
-                    false,
-                    (success) => {
-                        const callback = () => {
-                            increaseMarketProgress();
-                            next();
-                        };
-
-                        if (success) {
-                            setTimeout(callback, getRandomInt(50, 100));
-                        } else {
-                            setTimeout(() => marketRemoveQueueWorker(listingid, true, callback), getRandomInt(30000, 45000));
-                        }
-                    }
-                );
-            },
-            1
-        );
-
-        function marketRemoveQueueWorker(listingid, ignoreErrors, callback) {
-            const listingUI = getListingFromLists(listingid).elm;
-            const isBuyOrder = listingUI.id.startsWith('mybuyorder_');
-
-            market.removeListing(
-                listingid, isBuyOrder,
-                (errorRemove) => {
-                    if (!errorRemove) {
-                        $('.actual_content', listingUI).css('background', COLOR_SUCCESS);
-
-                        setTimeout(
-                            () => {
-                                removeListingFromLists(listingid);
-
-                                const numberOfListings = marketLists[0].size;
-                                if (numberOfListings > 0) {
-                                    $('#my_market_selllistings_number').text(numberOfListings.toString());
-
-                                    // This seems identical to the number of sell listings.
-                                    $('#my_market_activelistings_number').text(numberOfListings.toString());
-                                }
-                            },
-                            3000
-                        );
-
-                        return callback(true);
-                    } else {
-                        $('.actual_content', listingUI).css('background', COLOR_ERROR);
-
-                        return callback(false);
-                    }
-                }
-            );
-        }
-
-        const marketListingsItemsQueue = async.queue(
-            (listing, next) => {
-                const callback = () => {
-                    increaseMarketProgress();
-                    setTimeout(() => next(), getRandomInt(1000, 1500));
-                };
-
-                const url = `${window.location.origin}/market/mylistings`
-
-                const options = {
-                    method: 'GET',
-                    data: {
-                        count: 100,
-                        start: listing
-                    },
-                    responseType: 'json'
-                };
-
-                request(
-                    url,
-                    options,
-                    (error, data) => {
-                        if (error || !data?.success) {
-                            callback();
-                            return;
-                        }
-
-                        const myMarketListings = $('#tabContentsMyActiveMarketListingsRows');
-
-                        const nodes = $.parseHTML(data.results_html);
-                        const rows = $('.market_listing_row', nodes);
-                        myMarketListings.append(rows);
-
-                        // g_rgAssets
-                        unsafeWindow.MergeWithAssetArray(data.assets); // This is a method from Steam.
-
-                        callback();
-                    }
-                )
-            },
-            1
-        );
-
-        marketListingsItemsQueue.drain(() => {
-            const myMarketListings = $('#tabContentsMyActiveMarketListingsRows');
-            myMarketListings.checkboxes('range', true);
-
-            // Sometimes the Steam API is returning duplicate entries (especially during item listing), filter these.
-            const seen = {};
-            $('.market_listing_row', myMarketListings).each(function () {
-                const item_id = $(this).attr('id');
-                if (seen[item_id]) {
-                    $(this).remove();
-                } else {
-                    seen[item_id] = true;
-                }
-
-                // Remove listings awaiting confirmations, they are already listed separately.
-                if ($('.item_market_action_button', this).attr('href').toLowerCase().
-                    includes('CancelMarketListingConfirmation'.toLowerCase())) {
-                    $(this).remove();
-                }
-
-                // Remove buy order listings, they are already listed separately.
-                if ($('.item_market_action_button', this).attr('href').toLowerCase().
-                    includes('CancelMarketBuyOrder'.toLowerCase())) {
-                    $(this).remove();
-                }
-            });
-
-            // Now add the market checkboxes.
-            addMarketCheckboxes();
-
-            // Show the listings again, rendering is done.
-            removeSpinner();
-
-            myMarketListings.show();
-
-            fillMarketListingsQueue();
-        });
-
-        function fillMarketListingsQueue() {
-            $('.market_home_listing_table').each(function (e) {
-
-                // Not for popular / new / recently sold items (bottom of page).
-                if ($('.my_market_header', $(this)).length == 0) {
-                    return;
-                }
-
-                // Buy orders and listings confirmations are not grouped like the sell listings, add this so pagination works there as well.
-                if (!$(this).attr('id')) {
-                    $(this).attr('id', `market-listing-${e}`);
-
-                    $(this).append(`<div class="market_listing_see" id="market-listing-container-${e}"></div>`);
-                    $('.market_listing_row', $(this)).appendTo($(`#market-listing-container-${e}`));
-                } else {
-                    $(this).children().last().addClass('market_listing_see');
-                }
-
-                const marketListing = $('.market_listing_see', this).last();
-                if (marketListing[0].childElementCount > 0) {
-                    addMarketListings(marketListing);
-                    sortMarketListings($(this), false, false, true);
-                }
-            });
-
-            let totalSellOrderPriceBuyer = 0;
-            let totalSellOrderPriceSeller = 0;
-            let totalSellOrderAmount = 0;
-
-            let totalBuyOrderPrice = 0;
-            let totalBuyOrderAmount = 0;
-
-            // Add the listings to the queue to be checked for the price.
-            marketLists.flatMap(list => list.items).forEach(item => {
-                const isBuyOrder = item.elm.id.startsWith('mbuyorder_') || item.elm.id.startsWith('mybuyorder_');
-                const isSellOrder = item.elm.id.startsWith('mylisting_');
-
-                if (isSellOrder) {
-                    const listingid = replaceNonNumbers(item.values().market_listing_item_name);
-                    const assetInfo = getAssetInfoFromListingId(listingid);
-
-                    if (assetInfo.appid === undefined) {
-                        logConsole(`Skipping listing ${listingid} (appid not found)`);
-                        return;
-                    }
-
-                    totalSellOrderAmount += assetInfo.amount;
-
-                    if (!isNaN(assetInfo.priceBuyer)) {
-                        totalSellOrderPriceBuyer += assetInfo.priceBuyer * assetInfo.amount;
-                    }
-                    if (!isNaN(assetInfo.priceSeller)) {
-                        totalSellOrderPriceSeller += assetInfo.priceSeller * assetInfo.amount;
-                    }
-
-                    marketListingsQueue.push({
-                        listingid,
-                        appid: assetInfo.appid,
-                        contextid: assetInfo.contextid,
-                        assetid: assetInfo.assetid
-                    });
-
-                    return;
-                }
-
-                if (isBuyOrder) {
-                    const listingid = replaceNonNumbers(item.values().market_listing_item_name);
-                    const assetInfo = getAssetInfoFromBuyOrderId(listingid);
-
-                    if (assetInfo.amount === undefined) {
-                        logConsole(`Skipping listing ${listingid} (amount not found)`);
-                        return;
-                    }
-
-                    totalBuyOrderAmount += assetInfo.amount;
-
-                    if (!isNaN(assetInfo.price)) {
-                        totalBuyOrderPrice += assetInfo.price * assetInfo.amount;
-                    }
-
-                    return;
-                }
-
-                logConsole(`Skipping item ${item.elm.id} (not a buy or sell order)`);
-            });
-
-            if (totalSellOrderAmount > 0) {
-                increaseMarketProgressMax();
-            }
-
-            $('#my_market_selllistings_number').append(`<span id="my_market_sell_listings_total_amount"> [${totalSellOrderAmount}]</span>`)
-                .append(`<span id="my_market_sell_listings_total_price">, ${formatPrice(totalSellOrderPriceBuyer)} ➤ ${formatPrice(totalSellOrderPriceSeller)}</span>`);
-
-            $('#my_market_buylistings_number').append(`<span id="my_market_buy_listings_total_amount"> [${totalBuyOrderAmount}]</span>`)
-                .append(`<span id="my_market_buy_listings_total_price">, ${formatPrice(totalBuyOrderPrice)}</span>`);
-        }
-
-
-        // Gets the asset info (appid/contextid/assetid) based on a listingid.
-        function getAssetInfoFromListingId(listingid) {
-            const listing = getListingFromLists(listingid);
-            if (listing == null) {
-                return {};
-            }
-
-            const actionButton = $('.item_market_action_button', listing.elm).attr('href');
-            // Market buy orders have no asset info.
-            if (actionButton == null || actionButton.toLowerCase().includes('cancelmarketbuyorder')) {
-                return {};
-            }
-
-            const priceBuyer = getPriceValueAsInt($('.market_listing_price > span:nth-child(1) > span:nth-child(1)', listing.elm).text());
-            const priceSeller = getPriceValueAsInt($('.market_listing_price > span:nth-child(1) > span:nth-child(3)', listing.elm).text());
-            const itemIds = actionButton.split(',');
-            const appid = replaceNonNumbers(itemIds[2]);
-            const contextid = replaceNonNumbers(itemIds[3]);
-            const assetid = replaceNonNumbers(itemIds[4]);
-            const amount = Number(unsafeWindow.g_rgAssets[appid][contextid][assetid]?.amount ?? 1);
-            return {
-                appid,
-                contextid,
-                assetid,
-                amount,
-                priceBuyer,
-                priceSeller
-            };
-        }
-
-        function getAssetInfoFromBuyOrderId(orderid) {
-            const listing = getListingFromLists(orderid);
-
-            if (listing == null) {
-                return {};
-            }
-
-            if (!listing.elm.id.startsWith('mbuyorder_') && !listing.elm.id.startsWith('mybuyorder_')) {
-                return {};
-            }
-
-            const amount = parseInt($('.market_listing_buyorder_qty', listing.elm).text().trim());
-            const price = getPriceValueAsInt($('.market_listing_price', listing.elm)[0].innerText);
-
-            return { amount, price };
-        }
-
-        // Adds market item listings.
-        function addMarketListings(market_listing_see) {
-            market_listing_see.addClass('list');
-
-            $('.market_listing_table_header', market_listing_see.parent()).
-                append('<input class="search" id="market_name_search" placeholder="Search..." />');
-
-            const options = {
-                valueNames: [
-                    'market_listing_game_name',
-                    'market_listing_item_name_link',
-                    'market_listing_price',
-                    'market_listing_listed_date',
-                    {
-                        name: 'market_listing_item_name',
-                        attr: 'id'
-                    }
-                ]
-            };
-
-            try {
-                const list = new List(market_listing_see.parent().get(0), options);
-                list.on('searchComplete', updateMarketSelectAllButton);
-                marketLists.push(list);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        // Adds checkboxes to market listings.
-        function addMarketCheckboxes() {
-            $('.market_listing_row').each(function () {
-                // Don't add it again, one time is enough.
-                if ($('.market_listing_select', this).length == 0) {
-                    $('.market_listing_cancel_button', $(this)).append('<div class="market_listing_select">' +
-                        '<input type="checkbox" class="market_select_item"/>' +
-                        '</div>');
-
-                    $('.market_select_item', this).change(() => {
-                        updateMarketSelectAllButton();
-                    });
-                }
-            });
-        }
-
-        // Process the market listings.
-        function processMarketListings() {
-            addMarketCheckboxes();
-
-            if (currentPage == PAGE_MARKET) {
-                // Load the market listings.
-                let currentCount = 0;
-                let totalCount = 0;
-
-                if (typeof unsafeWindow.g_oMyListings !== 'undefined' && unsafeWindow.g_oMyListings != null && unsafeWindow.g_oMyListings.m_cTotalCount != null) {
-                    totalCount = unsafeWindow.g_oMyListings.m_cTotalCount;
-                } else {
-                    totalCount = parseInt($('#my_market_selllistings_number').text());
-                }
-
-                if (isNaN(totalCount) || totalCount == 0) {
-                    fillMarketListingsQueue();
-                    return;
-                }
-
-                $('#tabContentsMyActiveMarketListingsRows').html(''); // Clear the default listings.
-                $('#tabContentsMyActiveMarketListingsRows').hide(); // Hide all listings until everything has been loaded.
-
-                // Hide Steam's paging controls.
-                $('#tabContentsMyActiveMarketListings_ctn').hide();
-                $('.market_pagesize_options').hide();
-
-                // Show the spinner so the user knows that something is going on.
-                renderSpinner('Loading market listings');
-
-                while (currentCount < totalCount) {
-                    marketListingsItemsQueue.push(currentCount);
-                    increaseMarketProgressMax();
-                    currentCount += 100;
-                }
-            } else {
-                // This is on a market item page.
-                $('.market_home_listing_table').each(function () {
-                    // Not on 'x requests to buy at y,yy or lower'.
-                    if ($('#market_buyorder_info_show_details', $(this)).length > 0) {
-                        return;
-                    }
-
-                    $(this).children().last().wrap('<div class="market_listing_see"></div>');
-                    const marketListing = $('.market_listing_see', this).last();
-                    const container = $('.market_listing_row', marketListing)?.parent();
-
-                    if (marketListing[0]?.childElementCount > 0 && container != null && container.length > 0) {
-                        addMarketListings(container);
-                        sortMarketListings($(this), false, false, true);
-                    }
-                });
-
-                $('#tabContentsMyActiveMarketListingsRows > .market_listing_row').each(function () {
-                    const listingid = $(this).attr('id').replace('mylisting_', '').replace('mybuyorder_', '').replace('mbuyorder_', '');
-                    const assetInfo = getAssetInfoFromListingId(listingid);
-
-                    // There's only one item in the g_rgAssets on a market listing page.
-                    let existingAsset = null;
-                    for (const appid in unsafeWindow.g_rgAssets) {
-                        for (const contextid in unsafeWindow.g_rgAssets[appid]) {
-                            for (const assetid in unsafeWindow.g_rgAssets[appid][contextid]) {
-                                existingAsset = unsafeWindow.g_rgAssets[appid][contextid][assetid];
-                                break;
-                            }
-                        }
-                    }
-
-                    // appid and contextid are identical, only the assetid is different for each asset.
-                    unsafeWindow.g_rgAssets[assetInfo.appid][assetInfo.contextid][assetInfo.assetid] = existingAsset;
-                    marketListingsQueue.push({
-                        listingid,
-                        appid: assetInfo.appid,
-                        contextid: assetInfo.contextid,
-                        assetid: assetInfo.assetid
-                    });
-                    increaseMarketProgressMax();
-                });
-            }
-        }
-
-        // Update the select/deselect all button on the market.
-        function updateMarketSelectAllButton() {
-            $('.market_listing_buttons').each(function () {
-                const selectionGroup = $(this).parent().parent();
-                let invert = $('.market_select_item:checked', selectionGroup).length == $('.market_select_item', selectionGroup).length;
-                if ($('.market_select_item', selectionGroup).length == 0) { // If there are no items to select, keep it at Select all.
-                    invert = false;
-                }
-                $('.select_all > span', selectionGroup).text(invert ? 'Deselect all' : 'Select all');
-            });
-        }
-
-        // Sort the market listings.
-        function sortMarketListings(elem, isPrice, isDateOrQuantity, isName) {
-            const list = getListFromContainer(elem);
-            if (list == null) {
-                logConsole('Invalid parameter, could not find a list matching elem.');
-                return;
-            }
-
-            // Change sort order (asc/desc).
-            let asc = true;
-
-            // (Re)set the asc/desc arrows.
-            const arrow_down = '▼';
-            const arrow_up = '▲';
-
-            $('.market_listing_table_header > span', elem).each(function () {
-                if ($(this).hasClass('market_listing_edit_buttons')) {
-                    return;
-                }
-
-                if ($(this).text().includes(arrow_up)) {
-                    asc = false;
-                }
-
-                $(this).text($(this).text().replace(` ${arrow_down}`, '').replace(` ${arrow_up}`, ''));
-            });
-
-            let market_listing_selector;
-            if (isPrice) {
-                market_listing_selector = $('.market_listing_table_header', elem).children().eq(1);
-            } else if (isDateOrQuantity) {
-                market_listing_selector = $('.market_listing_table_header', elem).children().eq(2);
-            } else if (isName) {
-                market_listing_selector = $('.market_listing_table_header', elem).children().eq(3);
-            }
-            market_listing_selector.text(`${market_listing_selector.text()} ${asc ? arrow_up : arrow_down}`);
-
-            if (list.sort == null) {
-                return;
-            }
-
-            const isBuyOrder = list.list.querySelectorAll('.market_listing_buyorder_qty').length >= 1;
-
-            if (isName) {
-                list.sort('', {
-                    order: asc ? 'asc' : 'desc',
-                    sortFunction: function (a, b) {
-                        if (a.values().market_listing_game_name.toLowerCase().
-                            localeCompare(b.values().market_listing_game_name.toLowerCase()) ==
-                            0) {
-                            return a.values().market_listing_item_name_link.toLowerCase().
-                                localeCompare(b.values().market_listing_item_name_link.toLowerCase());
-                        }
-                        return a.values().market_listing_game_name.toLowerCase().
-                            localeCompare(b.values().market_listing_game_name.toLowerCase());
-                    }
-                });
-            } else if (isDateOrQuantity) {
-                const currentMonth = luxon.DateTime.local().month;
-
-                if (isBuyOrder) {
-                    list.sort('market_listing_buyorder_qty', {
-                        order: asc ? 'asc' : 'desc',
-                        sortFunction: function (a, b) {
-                            const quantityA = a.elm.querySelector('.market_listing_buyorder_qty').innerText;
-                            const quantityB = b.elm.querySelector('.market_listing_buyorder_qty').innerText;
-
-                            return quantityA - quantityB;
-                        }
-                    });
-                } else {
-                    list.sort('market_listing_listed_date', {
-                        order: asc ? 'asc' : 'desc',
-                        sortFunction: function (a, b) {
-                            let firstDate = luxon.DateTime.fromString(a.values().market_listing_listed_date.trim(), 'd MMM');
-                            let secondDate = luxon.DateTime.fromString(b.values().market_listing_listed_date.trim(), 'd MMM');
-
-                            if (firstDate == null || secondDate == null) {
-                                return 0;
-                            }
-
-                            if (firstDate.month > currentMonth) {
-                                firstDate = firstDate.plus({ years: -1 });
-                            }
-                            if (secondDate.month > currentMonth) {
-                                secondDate = secondDate.plus({ years: -1 });
-                            }
-
-                            if (firstDate > secondDate) {
-                                return 1;
-                            }
-                            if (firstDate === secondDate) {
-                                return 0;
-                            }
-                            return -1;
-                        }
-                    });
-                }
-            } else if (isPrice) {
-                list.sort('market_listing_price', {
-                    order: asc ? 'asc' : 'desc',
-                    sortFunction: function (a, b) {
-                        if (!isBuyOrder) {
-                            let listingPriceA = $(a.values().market_listing_price).text();
-                            listingPriceA = listingPriceA.substr(0, listingPriceA.indexOf('('));
-
-                            let listingPriceB = $(b.values().market_listing_price).text();
-                            listingPriceB = listingPriceB.substr(0, listingPriceB.indexOf('('));
-
-                            const firstPrice = getPriceValueAsInt(listingPriceA);
-                            const secondPrice = getPriceValueAsInt(listingPriceB);
-
-                            return firstPrice - secondPrice;
-                        } else {
-                            const priceA = getPriceValueAsInt(a.elm.querySelector('div:nth-child(3) > span:nth-child(1) > span:nth-child(1)').innerText);
-                            const priceB = getPriceValueAsInt(b.elm.querySelector('div:nth-child(3) > span:nth-child(1) > span:nth-child(1)').innerText);
-
-                            return priceA - priceB;
-                        }
-                    }
-                });
-            }
-        }
-
-        function getListFromContainer(group) {
-            for (let i = 0; i < marketLists.length; i++) {
-                if (group[0].contains(marketLists[i].listContainer)) {
-                    return marketLists[i];
-                }
-            }
-        }
-
-        function getListingFromLists(listingid) {
-            // Sometimes listing ids are contained in multiple lists (?), use the last one available as this is the one we're most likely interested in.
-            for (let i = marketLists.length - 1; i >= 0; i--) {
-                let values = marketLists[i].get('market_listing_item_name', `mylisting_${listingid}_name`);
-                if (values != null && values.length > 0) {
-                    return values[0];
-                }
-
-                values = marketLists[i].get('market_listing_item_name', `mbuyorder_${listingid}_name`);
-                if (values != null && values.length > 0) {
-                    return values[0];
-                }
-            }
-
-
-        }
-
-        function removeListingFromLists(listingid) {
-            for (let i = 0; i < marketLists.length; i++) {
-                marketLists[i].remove('market_listing_item_name', `mylisting_${listingid}_name`);
-                marketLists[i].remove('market_listing_item_name', `mbuyorder_${listingid}_name`);
-            }
-        }
-
-        // Initialize the market UI.
-        function initializeMarketUI() {
-            $('.market_header_text').append('<progress id="see_market_progress" value="1" max="1" hidden>');
-            marketProgressBar = document.getElementById('see_market_progress');
-
-            // Sell orders.
-            $('.my_market_header').first().append(`<div class="market_listing_buttons">
-                <a class="item_market_action_button item_market_action_button_green select_all market_listing_button">
-                    <span class="item_market_action_button_contents">Select all</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green select_five_from_page market_listing_button">
-                    <span class="item_market_action_button_contents">Select 5</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green select_twentyfive_from_page market_listing_button">
-                    <span class="item_market_action_button_contents">Select 25</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green remove_selected market_listing_button">
-                    <span class="item_market_action_button_contents">Remove selected</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green relist_selected market_listing_button" style="margin-left:auto">
-                    <span class="item_market_action_button_contents">Relist selected</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green relist_overpriced market_listing_button">
-                    <span class="item_market_action_button_contents">Relist overpriced</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green select_overpriced market_listing_button">
-                    <span class="item_market_action_button_contents">Select overpriced</span>
-                </a>
-            </div>`);
-
-            // Listings confirmations and buy orders.
-            $('.my_market_header').slice(1).append(`<div class="market_listing_buttons">
-                <a class="item_market_action_button item_market_action_button_green select_all market_listing_button">
-                    <span class="item_market_action_button_contents">Select all</span>
-                </a>
-                <a class="item_market_action_button item_market_action_button_green remove_selected market_listing_button">
-                    <span class="item_market_action_button_contents">Remove selected</span>
-                </a>
-            </div>`);
-
-            $('.market_listing_table_header').on('click', 'span', function () {
-                if ($(this).hasClass('market_listing_edit_buttons') || $(this).hasClass('item_market_action_button_contents')) {
-                    return;
-                }
-
-                const isPrice = $('.market_listing_table_header', $(this).parent().parent()).children().eq(1).text() == $(this).text();
-                const isDate = $('.market_listing_table_header', $(this).parent().parent()).children().eq(2).text() == $(this).text();
-                const isName = $('.market_listing_table_header', $(this).parent().parent()).children().eq(3).text() == $(this).text();
-
-                sortMarketListings($(this).parent().parent(), isPrice, isDate, isName);
-            });
-
-            $('.select_all').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                const invert = $('.market_select_item:checked', selectionGroup).length == $('.market_select_item', selectionGroup).length;
-
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    $('.market_select_item', marketList.matchingItems[i].elm).prop('checked', !invert);
-                }
-
-                updateMarketSelectAllButton();
-            });
-
-            $('.select_five_from_page').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                let count = 0;
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if (count == 5) {
-                        break;
-                    }
-                    if (!$('.market_select_item', marketList.matchingItems[i].elm).prop('checked')) {
-                        $('.market_select_item', marketList.matchingItems[i].elm).prop('checked', true);
-                        count += 1;
-                    }
-                }
-
-                updateMarketSelectAllButton();
-            });
-
-            $('.select_twentyfive_from_page').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                let count = 0;
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if (count == 25) {
-                        break;
-                    }
-                    if (!$('.market_select_item', marketList.matchingItems[i].elm).prop('checked')) {
-                        $('.market_select_item', marketList.matchingItems[i].elm).prop('checked', true);
-                        count += 1;
-                    }
-                }
-
-                updateMarketSelectAllButton();
-            });
-
-            $('.select_overpriced').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if ($(marketList.matchingItems[i].elm).hasClass('overpriced')) {
-                        $('.market_select_item', marketList.matchingItems[i].elm).prop('checked', true);
-                    }
-                }
-
-                $('.market_listing_row', selectionGroup).each(function () {
-                    if ($(this).hasClass('overpriced')) {
-                        $('.market_select_item', $(this)).prop('checked', true);
-                    }
-                });
-
-                updateMarketSelectAllButton();
-            });
-
-            $('.remove_selected').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if ($('.market_select_item', $(marketList.matchingItems[i].elm)).prop('checked')) {
-                        const listingid = replaceNonNumbers(marketList.matchingItems[i].values().market_listing_item_name);
-
-                        const listingUI = $(getListingFromLists(listingid).elm);
-                        listingUI.addClass('removing');
-
-                        marketRemoveQueue.push(listingid);
-                        increaseMarketProgressMax();
-                    }
-                }
-            });
-
-            $('.market_relist_auto').change(() => {
-                setSetting(SETTING_RELIST_AUTOMATICALLY, $('.market_relist_auto').is(':checked') ? 1 : 0);
-            });
-
-            $('.relist_overpriced').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if ($(marketList.matchingItems[i].elm).hasClass('overpriced')) {
-                        const listingid = replaceNonNumbers(marketList.matchingItems[i].values().market_listing_item_name);
-                        queueOverpricedItemListing(listingid);
-                    }
-                }
-            });
-
-            $('.relist_selected').on('click', '*', function () {
-                const selectionGroup = $(this).parent().parent().parent().parent();
-                const marketList = getListFromContainer(selectionGroup);
-
-                if (marketList == null) {
-                    return;
-                }
-
-                for (let i = 0; i < marketList.matchingItems.length; i++) {
-                    if ($(marketList.matchingItems[i].elm) && $('.market_select_item', $(marketList.matchingItems[i].elm)).prop('checked')) {
-                        const listingid = replaceNonNumbers(marketList.matchingItems[i].values().market_listing_item_name);
-                        queueOverpricedItemListing(listingid);
-                    }
-                }
-            });
-
-            $('#see_settings').remove();
-            $('#global_action_menu').prepend('<span id="see_settings"><a href="javascript:void(0)">⬖ Steam Economy Enhancer</a></span>');
-            $('#see_settings').on('click', '*', () => openSettings());
-
-            processMarketListings();
-            initializeMarketHistoryUI();
-        }
-    }
-
-    // Initialize the market history UI.
-    function initializeMarketHistoryUI() {
-        // Use jquery-observe (already included in SEE) to listen for AJAX DOM updates
-        $('#tabContentsMyMarketHistory').observe('childlist subtree', () => {
-            const controlsDiv = $('#tabContentsMyMarketHistory_controls');
-
-            // Ensure the controls exist and we haven't already injected our jumper
-            if (controlsDiv.length > 0 && $('#see_page_jump').length === 0) {
-                const jumpContainer = $('<span id="see_page_jump"></span>');
-                const input = $('<input type="number" min="1" placeholder="Page" />');
-                const btn = $('<span class="btn_green_white_innerfade btn_small" style="cursor: pointer;"><span>Jump</span></span>');
-
-                jumpContainer.append(input).append(btn);
-                controlsDiv.append(jumpContainer);
-
-                btn.on('click', () => {
-                    const targetPage = parseInt(input.val());
-                    if (isNaN(targetPage) || targetPage < 1) {
-                        return; // Fail silently
-                    }
-                    const targetIndex = targetPage - 1;
-
-                    if (typeof unsafeWindow.g_oMyHistory !== 'undefined') {
-                        unsafeWindow.g_oMyHistory.GoToPage(targetIndex);
-                    }
-                });
-
-                input.on('keypress', (e) => {
-                    if (e.which === 13) { // Enter key
-                        btn.click();
-                    }
-                });
-            }
-        });
     }
     //#endregion
 
@@ -4942,7 +4015,7 @@
             </div>
         </div>`);
 
-        unsafeWindow.ShowConfirmDialog('Steam Economy Enhancer', price_options).done(() => {
+        unsafeWindow.ShowConfirmDialog('Steam-Economy-Enhancer-Upgraded', price_options).done(() => {
             setSetting(SETTING_MIN_NORMAL_PRICE, $(`#${SETTING_MIN_NORMAL_PRICE}`, price_options).val());
             setSetting(SETTING_MAX_NORMAL_PRICE, $(`#${SETTING_MAX_NORMAL_PRICE}`, price_options).val());
             setSetting(SETTING_MIN_FOIL_PRICE, $(`#${SETTING_MIN_FOIL_PRICE}`, price_options).val());
@@ -4976,12 +4049,6 @@
         #listings_group { display: flex; justify-content: space-between; margin-bottom: 8px; }
         #listings_sell { text-align: right; color: #589328; font-weight:600; }
         #listings_buy { text-align: right; color: #589328; font-weight:600; }
-        .market_listing_my_price { height: 50px; padding-right:6px; }
-        .market_listing_edit_buttons.actual_content { width:276px; transition-property: background-color, border-color; transition-timing-function: linear; transition-duration: 0.5s;}
-        .market_listing_buttons { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; padding: 5px; background: rgba(0, 0, 0, 0.4); }
-        .market_listing_label_right { float:right; font-size:12px; margin-top:1px; }
-        .market_listing_select { position: absolute; top: 16px;right: 10px; display: flex; }
-        #market_listing_relist { vertical-align: middle; position: relative; bottom: -1px; right: 2px; }
         .pick_and_sell_button > a { vertical-align: middle; }
         .market_relist_auto { margin-bottom: 8px;  }
         .market_relist_auto_label { margin-right: 6px; }
@@ -4998,22 +4065,17 @@
             20% {transform:scaleY(1.0);}
         }
 
-        #market_name_search { float: right; background: rgba(0, 0, 0, 0.25); color: white; border: none;height: 25px; padding-left: 6px;}
         .price_option_price { width: 100px }
         .inventory_item_price { top: 0px;position: absolute;right: 0;background: #3571a5;padding: 2px;color: white; font-size:11px; border: 1px solid #666666;}
 
         .see_inventory_buttons {display:flex;flex-wrap:wrap;gap:10px;align-items:start;}
         .see_inventory_buttons > .see_inventory_buttons, .see_inventory_buttons > #inventory_items_spinner {flex-basis: 100%;}
-        #see_market_progress { display: block; width: 50%; height: 20px; }
-        #see_market_progress[hidden] { visibility: hidden; }
 
         #see_settings { background: #26566c; margin-right: 10px; height: 24px; line-height:24px; display:inline-block; padding: 0px 6px; }
         #see_settings_modal select, #see_settings_modal input[type="number"] { background-color: black; color: white; border: transparent; padding: 4px 8px; }
         #see_settings_modal input[type="number"] { width: 100px; }
         #see_settings_modal input[type="checkbox"] { width: 16px; height: 16px; vertical-align: middle; accent-color: #000; }
 
-        #see_page_jump { margin-left: 15px; display: inline-block; }
-        #see_page_jump > input { width: 60px; margin-right: 8px; background-color: #1b2838; color: #fff; border: 1px solid #4582a5; padding: 2px 5px; }
     `);
 
     $(document).ready(() => {
@@ -5024,10 +4086,6 @@
 
         if (currentPage == PAGE_INVENTORY) {
             initializeInventoryUI();
-        }
-
-        if (currentPage == PAGE_MARKET || currentPage == PAGE_MARKET_LISTING) {
-            initializeMarketUI();
         }
 
         if (currentPage == PAGE_TRADEOFFER) {
@@ -5082,10 +4140,6 @@
         let spinnerid = null;
 
         switch (currentPage) {
-            case PAGE_MARKET:
-                container = $('.my_market_header').eq(0);
-                spinnerid = 'market_listings_spinner';
-                break;
             case PAGE_INVENTORY:
                 container = $('#inventory_sell_buttons');
                 spinnerid = 'inventory_items_spinner';

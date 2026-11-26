@@ -54,6 +54,40 @@ function response(data, status = 200) {
     return { ok: status === 200, status, json: async () => data };
 }
 
+function historyEvent(id, time, name = `History item ${id}`) {
+    return {
+        listing: { listingid: String(id) },
+        description: { appid: 753, name, market_hash_name: `123-${name}`, type: 'Trading Card', icon_url: 'test-icon' },
+        purchase: { paid_amount: '300', paid_fee: '42', added_tax: '8', currencyid: '2029' },
+        event_type: 4,
+        time_event: time,
+        time_listing: time - 3600000
+    };
+}
+
+function historyService(events) {
+    return url => {
+        if (url.pathname === '/market/actions') {
+            assert.equal(url.searchParams.get('q'), 'QueryMyHistory');
+            const [start, count] = JSON.parse(url.searchParams.get('qp'));
+            assert.equal(count, start === 0 ? 50 : 25);
+            return response({ data: { eResult: 1, rgEvents: events.slice(start, start + count), bMore: start + count < events.length } });
+        }
+        const start = Number(url.searchParams.get('start'));
+        const count = Number(url.searchParams.get('count'));
+        return response({ success: true, start, total_count: events.length, results_html: events.slice(start, start + count).map(event => legacyRow(event.listing.listingid, event.description.name, { history: true })).join('') });
+    };
+}
+
+function searchHistory(app, { name = '', from = '', to = '' } = {}) {
+    for (const [label, value] of [['Search history by item name', name], ['From date', from], ['To date', to]]) {
+        app.document.querySelector(`[aria-label="${label}"]`).value = value;
+    }
+    app.click('Start search');
+}
+
+const searchComplete = app => app.document.querySelector('[role=status]').textContent.startsWith('Search complete.');
+
 async function waitFor(check) {
     for (let tries = 0; tries < 200; tries++) {
         if (check()) {
@@ -404,10 +438,166 @@ test('history defaults to 500, supports numbered pages, jumps and a partial fina
     assert.equal(app.document.querySelectorAll('tbody tr').length, 500);
     const jump = app.document.querySelector('input[aria-label="Page number"]');
     jump.value = '3';
-    app.document.querySelector('form').dispatchEvent(new app.window.Event('submit', { cancelable: true }));
+    app.document.querySelector('.see-history-pagination').dispatchEvent(new app.window.Event('submit', { cancelable: true }));
     await waitFor(() => app.document.querySelector('[aria-current=page]')?.textContent === '3');
     assert.equal(app.document.querySelectorAll('tbody tr').length, 250);
     assert.equal(new URL(app.calls.at(-1).url, app.window.location.origin).searchParams.get('start'), '1000');
+});
+
+test('history name search scans all batches and results paginate locally', async t => {
+    const events = Array.from({ length: 520 }, (_, i) => historyEvent(i, Date.now() - i * 1000, `Needle ${i}`));
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { name: 'ＮＥＥＤＬＥ' });
+    await waitFor(() => searchComplete(app));
+    assert.match(app.document.querySelector('[role=status]').textContent, /520 matches/);
+    assert.equal(app.document.querySelectorAll('tbody tr').length, 500);
+    const before = app.calls.length;
+    app.click('Next');
+    assert.equal(app.calls.length, before);
+    assert.equal(app.document.querySelectorAll('tbody tr').length, 20);
+    assert.match(app.document.querySelector('tbody').textContent, /Needle 519/);
+    assert.ok(app.calls.some(call => new URL(call.url, app.window.location.origin).searchParams.get('start') === '500'));
+});
+
+test('date-only history search uses binary page lookup and exact full timestamps', async t => {
+    const base = new Date('2026-11-26T12:00:00').getTime();
+    const events = Array.from({ length: 8192 }, (_, i) => historyEvent(i, base - i * 3600000));
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2026-03-01', to: '2026-03-02' });
+    await waitFor(() => searchComplete(app));
+    assert.match(app.document.querySelector('[role=status]').textContent, /48 matches/);
+    assert.equal(app.document.querySelectorAll('tbody tr').length, 48);
+    const queries = app.calls.filter(call => new URL(call.url, app.window.location.origin).pathname === '/market/actions');
+    assert.ok(queries.length < 35, `Expected a binary lookup, received ${queries.length} page requests`);
+    assert.ok(queries.every(call => JSON.parse(new URL(call.url, app.window.location.origin).searchParams.get('qp'))[0] > 1000));
+    for (const row of app.document.querySelectorAll('tbody tr')) {
+        assert.match(row.children[2].textContent, /3\/[12]\/2026/);
+        assert.equal(row.children[3].textContent, 'HK$3.50');
+    }
+});
+
+test('date boundaries include the full final day and do not confuse identical dates in different years', async t => {
+    const events = [
+        historyEvent('newer', new Date('2026-03-02T00:00:00').getTime()),
+        historyEvent('late', new Date('2026-03-01T23:59:59.999').getTime()),
+        historyEvent('early', new Date('2026-03-01T00:00:00').getTime()),
+        historyEvent('older', new Date('2025-03-01T12:00:00').getTime())
+    ];
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2026-03-01', to: '2026-03-01' });
+    await waitFor(() => searchComplete(app));
+    assert.deepEqual([...app.document.querySelectorAll('tbody a')].map(a => a.textContent), ['History item late', 'History item early']);
+    assert.equal(app.calls.filter(call => new URL(call.url, app.window.location.origin).pathname === '/market/actions').length, 1);
+});
+
+test('date lookup retains all equal timestamps across page boundaries', async t => {
+    const times = [
+        ...Array(12).fill(new Date('2026-03-02T00:00:00').getTime()),
+        ...Array(50).fill(new Date('2026-03-01T00:00:00').getTime()),
+        ...Array(16).fill(new Date('2026-02-28T23:59:59.999').getTime())
+    ];
+    const events = times.map((time, i) => historyEvent(i, time));
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2026-03-01', to: '2026-03-01' });
+    await waitFor(() => searchComplete(app));
+    assert.equal(app.document.querySelectorAll('tbody a').length, 50);
+    assert.deepEqual([...app.document.querySelectorAll('tbody a')].map(a => a.textContent), events.slice(12, 62).map(event => event.description.name));
+});
+
+test('name and date criteria are combined, and either date bound can be omitted', async t => {
+    const events = [
+        historyEvent('1', new Date('2026-03-03T12:00:00').getTime(), 'Needle new'),
+        historyEvent('2', new Date('2026-03-02T12:00:00').getTime(), 'Other'),
+        historyEvent('3', new Date('2026-03-01T12:00:00').getTime(), 'Needle old')
+    ];
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { name: 'needle', from: '2026-03-02' });
+    await waitFor(() => searchComplete(app));
+    assert.deepEqual([...app.document.querySelectorAll('tbody a')].map(a => a.textContent), ['Needle new']);
+    searchHistory(app, { to: '2026-03-02' });
+    await waitFor(() => searchComplete(app));
+    assert.deepEqual([...app.document.querySelectorAll('tbody a')].map(a => a.textContent), ['Other', 'Needle old']);
+});
+
+test('a date range outside the recorded history returns no matches', async t => {
+    const events = Array.from({ length: 60 }, (_, i) => historyEvent(i, new Date('2026-03-01T12:00:00').getTime() - i * 3600000));
+    const app = boot(t, 'history', [], historyService(events));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2027-01-01', to: '2027-01-02' });
+    await waitFor(() => searchComplete(app));
+    assert.match(app.document.querySelector('[role=status]').textContent, /0 matches/);
+    assert.equal(app.document.querySelectorAll('tbody a').length, 0);
+});
+
+test('history search rejects empty criteria and reversed dates before sending requests', async t => {
+    const app = boot(t, 'history', [], historyService([historyEvent('1', Date.now())]));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    const before = app.calls.length;
+    searchHistory(app);
+    assert.match(app.document.querySelector('[role=status]').textContent, /Enter an item name/);
+    searchHistory(app, { from: '2026-03-02', to: '2026-03-01' });
+    assert.match(app.document.querySelector('[role=status]').textContent, /valid date range/);
+    assert.equal(app.calls.length, before);
+});
+
+test('stopping history name search aborts the pending request and retains results already found', async t => {
+    const events = Array.from({ length: 520 }, (_, i) => historyEvent(i, Date.now() - i * 1000, i === 0 ? 'Needle' : 'Other'));
+    const service = historyService(events);
+    let pendingSignal;
+    const app = boot(t, 'history', [], (url, options) => {
+        if (url.searchParams.get('start') === '500') {
+            pendingSignal = options.signal;
+            return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }));
+        }
+        return service(url);
+    });
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { name: 'Needle' });
+    await waitFor(() => pendingSignal);
+    assert.equal(app.document.querySelectorAll('tbody a').length, 1);
+    app.click('Stop search');
+    await waitFor(() => app.document.querySelector('[role=status]').textContent.startsWith('Search stopped.'));
+    assert.ok(pendingSignal.aborted);
+    assert.equal(app.document.querySelector('tbody a').textContent, 'Needle');
+    assert.ok(!app.document.querySelector('[aria-label="Search history by item name"]').disabled);
+    app.click('Clear search');
+    await waitFor(() => app.document.querySelectorAll('tbody a').length === 500);
+});
+
+test('stopping during binary date lookup also aborts immediately', async t => {
+    const events = Array.from({ length: 100 }, (_, i) => historyEvent(i, Date.now() - i * 3600000));
+    const service = historyService(events);
+    let pendingSignal;
+    const app = boot(t, 'history', [], (url, options) => {
+        if (url.pathname === '/market/actions') {
+            pendingSignal = options.signal;
+            return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }));
+        }
+        return service(url);
+    });
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2026-03-01' });
+    await waitFor(() => pendingSignal);
+    app.click('Stop search');
+    await waitFor(() => app.document.querySelector('[role=status]').textContent.startsWith('Search stopped.'));
+    assert.ok(pendingSignal.aborted);
+    assert.equal(app.document.querySelectorAll('tbody a').length, 0);
+});
+
+test('date search reports failure instead of guessing years when the timestamp endpoint fails', async t => {
+    const events = [historyEvent('1', Date.now())];
+    const service = historyService(events);
+    const app = boot(t, 'history', [], url => url.pathname === '/market/actions' ? response({}, 429) : service(url));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    searchHistory(app, { from: '2026-03-01' });
+    await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('Search stopped:'));
+    assert.match(app.document.querySelector('[role=status]').textContent, /429/);
+    assert.equal(app.document.querySelectorAll('tbody a').length, 0);
 });
 
 test('history fills a display page from clamped responses without skipping offsets', async t => {
@@ -433,7 +623,7 @@ test('history errors retain the current page and provide retry; loading disables
     await waitFor(() => app.document.querySelectorAll('tbody tr').length === 500);
     fail = true;
     app.click('Next');
-    assert.ok(app.document.querySelector('form button').disabled);
+    assert.ok(app.document.querySelector('.see-history-pagination button').disabled);
     await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('429'));
     assert.equal(app.document.querySelectorAll('tbody tr').length, 500);
     assert.equal(app.document.querySelector('[aria-current=page]').textContent, '1');

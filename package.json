@@ -1,6 +1,7 @@
 {
   "private": true,
-  "name": "@nuklon/steam-economy-enhancer",
+  "name": "@tinykiecoo/steam-economy-enhancer-upgraded",
+  "author": "TinyKiecoo",
   "license": "MIT",
   "scripts": {
     "fix": "eslint --fix",
