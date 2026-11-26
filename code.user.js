@@ -4,7 +4,7 @@
 // @namespace    https://github.com/Nuklon
 // @author       Nuklon
 // @license      MIT
-// @version      7.4.0
+// @version      7.4.1
 // @description  Enhances the Steam Inventory and Steam Market.
 // @match        https://steamcommunity.com/id/*/inventory*
 // @match        https://steamcommunity.com/profiles/*/inventory*
@@ -47,7 +47,8 @@
         const currencyCodes = 'USD GBP EUR CHF RUB PLN BRL JPY NOK IDR MYR PHP SGD THB VND KRW TRY UAH MXN CAD AUD NZD CNY INR CLP PEN COP ZAR HKD TWD SAR AED SEK ARS ILS BYN KZT KWD QAR CRC UYU BGN HRK CZK DKK HUF RON'.split(' ');
         const seed = readMarketSeed();
         const walletCurrency = seed.queries.find(q => q.queryKey[0] === 'CurrentUserWalletDetails')?.state.data?.currency_code || null;
-        const locale = document.documentElement.lang || navigator.language || 'en-US';
+        const locale = 'en-US';
+        const sourceLocale = document.documentElement.lang || navigator.language || locale;
         let view;
         let suppressedPath;
         let scheduled;
@@ -106,6 +107,18 @@
             return `/market/listings/${Number(description.appid)}/${encodeURIComponent(description.market_bucket_group_id || description.market_hash_name || description.name || '')}`;
         }
 
+        function itemImage(description, fallback = '') {
+            const source = description.icon_url
+                ? `https://community.steamstatic.com/economy/image/${description.icon_url}/64fx64f`
+                : fallback;
+            try {
+                const url = new URL(source);
+                return url.protocol === 'https:' && (url.hostname.endsWith('.steamstatic.com') || url.hostname.endsWith('.akamaihd.net')) ? url.href : '';
+            } catch {
+                return '';
+            }
+        }
+
         function seedRows(kind) {
             return seed.queries.filter(q => kind === 'buyorders'
                 ? q.queryKey[0] === 'buy_orders' && q.queryKey[1] === true
@@ -127,6 +140,7 @@
                 game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? 'Steam Community Items' : ''),
                 description,
                 href: itemURL(description),
+                image: itemImage(description),
                 date: Number(data.time_created || 0) * 1000,
                 dateText: dateText(Number(data.time_created || 0) * 1000),
                 quantity: Number(buy ? data.quantity_remaining : data.asset?.amount || 1),
@@ -170,10 +184,11 @@
                     game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid || new URL(href, location.origin).pathname.split('/')[3]) === 753 ? 'Steam Community Items' : ''),
                     description,
                     href,
+                    image: itemImage(description, node.querySelector('.market_listing_item_img')?.getAttribute('src')),
                     date: legacyDate(dates[0]?.textContent || ''),
                     dateText: dates[0]?.textContent.trim() || '—',
                     actedText: dates[1]?.textContent.trim() || '—',
-                    action: node.querySelector('.market_listing_gainorloss')?.textContent.includes('+') ? 'Purchased / 已购入' : 'Sold / 已售出',
+                    action: node.querySelector('.market_listing_gainorloss')?.textContent.includes('+') ? 'Purchased' : 'Sold',
                     quantity: Number(node.querySelector('.market_listing_buyorder_qty')?.textContent.trim() || description.amount || 1),
                     price: numberFromPrice(priceText),
                     priceText: priceText.split('(')[0].trim(),
@@ -186,6 +201,7 @@
                 return known ? {
                     ...row,
                     description: known.description,
+                    image: known.image || row.image,
                     game: known.game,
                     date: known.date,
                     dateText: known.dateText,
@@ -208,7 +224,7 @@
                 day = Number(numeric[2]);
             } else {
                 day = Number(text.match(/\d+/)?.[0]);
-                const languages = [locale, 'en-US'];
+                const languages = [sourceLocale, locale];
                 month = Array.from({ length: 12 }, (_, i) => i).find(i => languages.some(language => {
                     const label = new Intl.DateTimeFormat(language, { month: 'short' }).format(new Date(2020, i, 1));
                     return text.toLocaleLowerCase().includes(label.toLocaleLowerCase());
@@ -231,14 +247,14 @@
                 signal: AbortSignal.any([state.controller.signal, AbortSignal.timeout(30000)])
             });
             if (!response.ok) {
-                const error = new Error(response.status === 429 ? 'Steam 请求过于频繁，请稍后重试（429）。' : `Steam 请求失败（${response.status}）。`);
+                const error = new Error(response.status === 429 ? 'Too many Steam requests. Please try again later (429).' : `Steam request failed (${response.status}).`);
                 error.status = response.status;
                 throw error;
             }
             try {
                 return await response.json();
             } catch {
-                throw new Error('Steam 返回了非 JSON 数据，请确认仍处于登录状态。');
+                throw new Error('Steam returned a non-JSON response. Please check that you are still signed in.');
             }
         }
 
@@ -246,7 +262,7 @@
             const params = new URLSearchParams({ q: name, qp: JSON.stringify(args) });
             const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' } });
             if (result.data?.eResult !== 1) {
-                throw new Error(`Steam ${name} 失败（${result.data?.eResult ?? '无数据'}）。`);
+                throw new Error(`Steam ${name} failed (${result.data?.eResult ?? 'no data'}).`);
             }
             return result.data;
         }
@@ -255,13 +271,20 @@
             state.loading = true;
             state.notice = '';
             renderOrders(state);
-            state.status.textContent = '正在加载全部物品…';
+            state.status.textContent = 'Loading items…';
             try {
                 const pages = fresh ? [] : seedRows(state.kind);
                 const rows = new Map(pages.flatMap(p => p[state.kind === 'buyorders' ? 'buy_orders' : 'listings'] || []).map(e => {
                     const row = modernRow(e, state.kind);
                     return [row.id, row];
                 }));
+                const publish = () => {
+                    if (!state.controller.signal.aborted) {
+                        state.rows = Array.from(rows.values());
+                        renderOrders(state);
+                    }
+                };
+                publish();
                 let more = !pages.length || pages.at(-1).more;
                 let offset = rows.size;
                 try {
@@ -270,6 +293,9 @@
                         // Steam accepts 50 initially, but only 25 on subsequent pages.
                         const count = offset === 0 ? 50 : 25;
                         const data = await queryAction(buy ? 'QueryMyBuyOrders' : 'QueryMyListings', [offset, count, buy ? true : { bGetAllData: true, category: 'active' }], state);
+                        if (state.controller.signal.aborted) {
+                            return;
+                        }
                         const entries = data[buy ? 'rgBuyOrders' : 'rgListings'] || [];
                         const previousSize = rows.size;
                         entries.forEach(entry => {
@@ -278,10 +304,10 @@
                         });
                         more = data.bMore;
                         if (more && (!entries.length || rows.size === previousSize)) {
-                            throw new Error('Steam 返回了重复或空白分页，请刷新重试。');
+                            throw new Error('Steam returned a duplicate or empty page. Please refresh and try again.');
                         }
                         offset += entries.length;
-                        state.status.textContent = `已加载 ${rows.size} 件物品…`;
+                        publish();
                         if (more) {
                             await pause(1000);
                         }
@@ -290,16 +316,34 @@
                     if (state.controller.signal.aborted) {
                         throw error;
                     }
+                    const loaded = new Map(rows);
                     rows.clear();
                     offset = 0;
                     do {
                         const data = await jsonRequest(`/market/mylistings?start=${offset}&count=100`, state);
+                        if (state.controller.signal.aborted) {
+                            return;
+                        }
                         if (!data.success) {
-                            throw new Error('Steam 未返回有效挂单数据，请确认已登录。');
+                            throw new Error('Steam did not return valid listings. Please check that you are signed in.');
                         }
                         const batch = parseLegacy(data, state.kind);
                         const before = rows.size;
-                        batch.forEach(row => rows.set(row.id, row));
+                        batch.forEach(row => {
+                            const known = loaded.get(row.id);
+                            rows.set(row.id, known ? {
+                                ...row,
+                                description: known.description,
+                                image: known.image || row.image,
+                                game: known.game,
+                                date: known.date,
+                                dateText: known.dateText,
+                                typical: known.typical,
+                                typicalText: known.typicalText,
+                                currency: known.currency
+                            } : row);
+                        });
+                        publish();
                         // The legacy endpoint includes ALL buy orders on every sell-listing page.
                         if (state.kind === 'buyorders') {
                             break;
@@ -307,13 +351,13 @@
                         offset += batch.length;
                         more = offset < Number(data.total_count);
                         if (more && rows.size === before) {
-                            throw new Error('Steam 未能返回下一批挂单，请刷新重试。');
+                            throw new Error('Steam could not return the next batch of listings. Please refresh and try again.');
                         }
                         if (more) {
                             await pause(1000);
                         }
                     } while (more);
-                    state.notice = '已使用 Steam 兼容接口；未返回的通常价格显示为 —。';
+                    state.notice = 'Using the Steam compatibility endpoint. Unavailable typical prices are shown as —.';
                 }
                 if (state.controller.signal.aborted) {
                     return;
@@ -363,8 +407,8 @@
                 const checkbox = element('input');
                 checkbox.type = 'checkbox';
                 checkbox.checked = state.selected.has(row.id);
-                checkbox.disabled = state.busy || state.loading;
-                checkbox.setAttribute('aria-label', `选择 ${row.name}`);
+                checkbox.disabled = state.busy;
+                checkbox.setAttribute('aria-label', `Select ${row.name}`);
                 checkbox.addEventListener('change', () => {
                     if (checkbox.checked) {
                         state.selected.add(row.id);
@@ -378,29 +422,42 @@
                 tr.append(element('td', state.kind === 'buyorders' ? row.quantity : row.dateText));
                 const price = element('td', row.priceText);
                 if (row.sellerText) {
-                    price.append(element('small', `（${row.sellerText}）`));
+                    price.append(element('small', `(${row.sellerText})`));
                 }
                 tr.append(price, element('td', row.typicalText));
                 const actions = element('td');
-                const action = button(state.kind === 'buyorders' ? '取消' : '修改', () => state.kind === 'buyorders' ? removeOrders(state, [row]) : modifyOrder(state, row), actions);
+                const action = button(state.kind === 'buyorders' ? 'Cancel' : 'Modify', () => state.kind === 'buyorders' ? removeOrders(state, [row]) : modifyOrder(state, row), actions);
                 action.disabled = state.busy || state.loading;
                 tr.append(actions);
                 state.body.append(tr);
             }
             if (!rows.length) {
-                const cell = element('td', state.loading ? '正在加载…' : '没有匹配的物品。');
+                const cell = element('td', state.loading ? 'Loading…' : 'No matching items.');
                 cell.colSpan = 6;
                 const tr = element('tr');
                 tr.append(cell);
                 state.body.append(tr);
             }
-            state.count.textContent = `显示 ${rows.length} / ${state.rows.length} 件 · 已选择 ${state.selected.size} 件`;
-            state.status.textContent = state.notice || '';
+            state.count.textContent = `Showing ${rows.length} / ${state.rows.length} items · ${state.selected.size} selected`;
+            state.status.textContent = state.loading ? `Loading items… ${state.rows.length} loaded.` : state.notice || '';
             updateSelection(state);
         }
 
         function itemCell(row) {
             const td = element('td', null, 'see-item');
+            const content = element('div', null, 'see-item-content');
+            if (row.image) {
+                const image = element('img', null, 'see-item-image');
+                image.src = row.image;
+                image.alt = '';
+                image.width = 32;
+                image.height = 32;
+                image.loading = 'lazy';
+                image.decoding = 'async';
+                image.addEventListener('error', () => image.remove(), { once: true });
+                content.append(image);
+            }
+            const text = element('div', null, 'see-item-text');
             const link = element('a', row.name);
             const url = new URL(row.href, location.origin);
             if (url.origin === location.origin && url.pathname.startsWith('/market/listings/')) {
@@ -408,7 +465,9 @@
             }
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            td.append(link, element('small', [...new Set([row.game, row.type].filter(Boolean))].join(' · ')));
+            text.append(link, element('small', [...new Set([row.game, row.type].filter(Boolean))].join(' · ')));
+            content.append(text);
+            td.append(content);
             return td;
         }
 
@@ -417,18 +476,18 @@
             const count = rows.filter(row => state.selected.has(row.id)).length;
             state.all.checked = rows.length > 0 && count === rows.length;
             state.all.indeterminate = count > 0 && count < rows.length;
-            state.all.disabled = state.loading || state.busy || !rows.length;
+            state.all.disabled = state.busy || !rows.length;
             state.remove.disabled = state.loading || state.busy || !state.selected.size;
-            state.select.disabled = state.loading || state.busy || !rows.length;
-            state.deselect.disabled = state.loading || state.busy || !state.selected.size;
+            state.select.disabled = state.busy || !rows.length;
+            state.deselect.disabled = state.busy || !state.selected.size;
             state.refresh.disabled = state.loading || state.busy;
-            state.count.textContent = `显示 ${rows.length} / ${state.rows.length} 件 · 已选择 ${state.selected.size} 件`;
+            state.count.textContent = `Showing ${rows.length} / ${state.rows.length} items · ${state.selected.size} selected`;
         }
 
         async function cancelOrder(state, row) {
             const sessionid = document.cookie.split('; ').find(c => c.startsWith('sessionid='))?.slice(10);
             if (!sessionid) {
-                throw new Error('未找到 Steam 会话，请重新登录后再试。');
+                throw new Error('Steam session not found. Please sign in again and retry.');
             }
             const buy = state.kind === 'buyorders';
             const body = new URLSearchParams({ sessionid, ...(buy ? { buy_orderid: row.id } : {}) });
@@ -436,7 +495,7 @@
             // The legacy sell-removal endpoint uses [] for a successful cancellation.
             const accepted = !buy && Array.isArray(result) && result.length === 0 || result?.success === true || result?.success === 1;
             if (!accepted) {
-                throw new Error(result?.message || `Steam 未确认取消成功（${result?.success ?? '无结果'}）。`);
+                throw new Error(result?.message || `Steam did not confirm cancellation (${result?.success ?? 'no result'}).`);
             }
         }
 
@@ -446,7 +505,7 @@
             }
             const visible = new Set(matches(state).map(row => row.id));
             const hidden = rows.filter(row => !visible.has(row.id)).length;
-            if (!unsafeWindow.confirm(`确定${state.kind === 'buyorders' ? '取消求购' : '下架'}这 ${rows.length} 件物品？${hidden ? `\n其中 ${hidden} 件被当前筛选隐藏。` : ''}\n${rows.slice(0, 5).map(row => `${row.name} · ${row.priceText}`).join('\n')}`)) {
+            if (!unsafeWindow.confirm(`${state.kind === 'buyorders' ? 'Cancel' : 'Remove'} these ${rows.length} ${state.kind === 'buyorders' ? 'buy orders' : 'listings'}?${hidden ? `\n${hidden} selected ${hidden === 1 ? 'item is' : 'items are'} hidden by the current filter.` : ''}\n${rows.slice(0, 5).map(row => `${row.name} · ${row.priceText}`).join('\n')}`)) {
                 return;
             }
             state.busy = true;
@@ -457,7 +516,7 @@
                     if (state.controller.signal.aborted) {
                         return;
                     }
-                    state.status.textContent = `正在取消 ${completed + 1} / ${rows.length}…`;
+                    state.status.textContent = `Cancelling ${completed + 1} / ${rows.length}…`;
                     await cancelOrder(state, row);
                     completed++;
                     state.rows = state.rows.filter(r => r.id !== row.id);
@@ -467,10 +526,10 @@
                         await pause(1000);
                     }
                 }
-                state.notice = `已成功取消 ${completed} 件物品。`;
+                state.notice = `Successfully cancelled ${completed} items.`;
             } catch (error) {
                 // A failed/ambiguous POST is never retried automatically.
-                state.notice = `已取消 ${completed} 件；操作已停止：${error.message} 请刷新核对后重试。`;
+                state.notice = `Cancelled ${completed} items; operation stopped: ${error.message} Refresh to verify the results before trying again.`;
             } finally {
                 state.busy = false;
                 if (!state.controller.signal.aborted) {
@@ -484,13 +543,13 @@
                 return;
             }
             if (!row.currency) {
-                state.status.textContent = '暂时无法确定挂单币种，请刷新页面，或使用 Steam 原始列表修改。';
+                state.status.textContent = 'Cannot determine the listing currency. Please refresh the page or modify it in the original Steam list.';
                 return;
             }
             const dialog = element('dialog', null, 'see-market-dialog');
             state.host.append(dialog);
-            dialog.append(element('h3', '修改挂单'), element('p', row.name), element('p', `当前要价：${row.priceText} · 通常价格：${row.typicalText}`));
-            const label = element('label', '你将收到（每件，扣除手续费后）：');
+            dialog.append(element('h3', 'Modify listing'), element('p', row.name), element('p', `Asking price: ${row.priceText} · Typical price: ${row.typicalText}`));
+            const label = element('label', 'You receive per item (after fees):');
             const input = element('input');
             input.type = 'number';
             input.min = '0.01';
@@ -498,18 +557,18 @@
             input.value = ((row.seller ?? numberFromPrice(row.sellerText)) / 100).toFixed(2);
             label.append(input);
             dialog.append(label);
-            const message = element('p', '降低价格可能需要在 Steam 手机应用或电子邮件中确认。', 'see-status');
+            const message = element('p', 'Lowering the price may require confirmation in the Steam mobile app or by email.', 'see-status');
             dialog.append(message);
             const controls = element('div', null, 'see-toolbar');
             dialog.append(controls);
-            const save = button('保存价格', async () => {
+            const save = button('Save price', async () => {
                 const value = Number(input.value);
                 const cents = Math.round(value * 100);
                 if (!input.value || !Number.isFinite(value) || cents < 1 || Math.abs(value * 100 - cents) > 0.00001) {
-                    message.textContent = '请输入大于零、最多两位小数的价格。';
+                    message.textContent = 'Enter a price greater than zero with at most two decimal places.';
                     return;
                 }
-                if (!unsafeWindow.confirm(`将 ${row.name} 的每件税后收入修改为 ${money(cents, row.currency)}？`)) {
+                if (!unsafeWindow.confirm(`Change the amount you receive per item for ${row.name} to ${money(cents, row.currency)}?`)) {
                     return;
                 }
                 save.disabled = true;
@@ -524,21 +583,21 @@
                     });
                     const data = result.data;
                     if (data?.eResult !== 1 || data.eUpdateResult !== 1) {
-                        throw new Error(`Steam 未确认修改成功（${data?.eUpdateResult ?? data?.eResult ?? '无结果'}）。`);
+                        throw new Error(`Steam did not confirm the price change (${data?.eUpdateResult ?? data?.eResult ?? 'no result'}).`);
                     }
-                    message.textContent = data.bRequiresConfirmation ? '已提交，请在 Steam 手机应用或电子邮件中确认，然后刷新列表。' : '价格已更新，请刷新列表查看 Steam 的最终价格。';
+                    message.textContent = data.bRequiresConfirmation ? 'Submitted. Confirm in the Steam mobile app or by email, then refresh the list.' : 'Price updated. Refresh the list to see the final Steam price.';
                 } catch (error) {
-                    message.textContent = `${error.message} 请刷新核对后重试。`;
+                    message.textContent = `${error.message} Refresh to verify the result before trying again.`;
                 } finally {
                     close.disabled = false;
                     remove.disabled = false;
                 }
             }, controls);
-            const remove = button('下架此物品', async () => {
+            const remove = button('Remove this item', async () => {
                 dialog.close();
                 await removeOrders(state, [row]);
             }, controls);
-            const close = button('关闭', () => dialog.close(), controls);
+            const close = button('Close', () => dialog.close(), controls);
             dialog.addEventListener('close', () => dialog.remove(), { once: true });
             dialog.showModal();
         }
@@ -547,10 +606,10 @@
             const toolbar = element('div', null, 'see-toolbar');
             state.search = element('input');
             state.search.type = 'search';
-            state.search.placeholder = '搜索名称、游戏、类型、价格…';
-            state.search.setAttribute('aria-label', '搜索所有物品信息');
+            state.search.placeholder = 'Search names, games, types, prices…';
+            state.search.setAttribute('aria-label', 'Search all item information');
             state.search.addEventListener('input', () => renderOrders(state));
-            state.remove = button(state.kind === 'buyorders' ? '取消所选求购' : '下架所选物品', () => removeOrders(state, state.rows.filter(row => state.selected.has(row.id))), toolbar);
+            state.remove = button(state.kind === 'buyorders' ? 'Cancel selected' : 'Remove selected', () => removeOrders(state, state.rows.filter(row => state.selected.has(row.id))), toolbar);
             const select = checked => {
                 if (checked) {
                     matches(state).forEach(row => state.selected.add(row.id));
@@ -561,7 +620,7 @@
             };
             state.select = button('Select All', () => select(true), toolbar);
             state.deselect = button('Deselect All', () => select(false), toolbar);
-            state.refresh = button('刷新', () => loadOrders(state, true), toolbar);
+            state.refresh = button('Refresh', () => loadOrders(state, true), toolbar);
             toolbar.append(state.search);
             state.count = element('p', '', 'see-status');
             state.host.append(toolbar, state.count);
@@ -570,7 +629,7 @@
             const selection = element('th');
             state.all = element('input');
             state.all.type = 'checkbox';
-            state.all.setAttribute('aria-label', '选择所有筛选结果');
+            state.all.setAttribute('aria-label', 'Select all matching items');
             state.all.addEventListener('change', () => {
                 const checked = state.all.checked;
                 matches(state).forEach(row => checked ? state.selected.add(row.id) : state.selected.delete(row.id));
@@ -578,7 +637,7 @@
             });
             selection.append(state.all);
             head.append(selection);
-            const columns = [['name', '物品名称'], [state.kind === 'buyorders' ? 'quantity' : 'date', state.kind === 'buyorders' ? '剩余数量' : '上架时间'], ['price', state.kind === 'buyorders' ? '求购价格' : '要价'], ['typical', '通常价格']];
+            const columns = [['name', 'Name'], [state.kind === 'buyorders' ? 'quantity' : 'date', state.kind === 'buyorders' ? 'Quantity' : 'Listed on'], ['price', state.kind === 'buyorders' ? 'Bid price' : 'Asking price'], ['typical', 'Typical price']];
             for (const [key, text] of columns) {
                 const th = element('th');
                 th.scope = 'col';
@@ -589,10 +648,10 @@
                     th.setAttribute('aria-sort', state.sort.direction === 1 ? 'ascending' : 'descending');
                     renderOrders(state);
                 }, th);
-                sort.title = `按${text}升序或降序排序`;
+                sort.title = `Sort by ${text.toLowerCase()} in ascending or descending order`;
                 head.append(th);
             }
-            head.append(element('th', '操作'));
+            head.append(element('th', 'Action'));
             state.body = table.createTBody();
             loadOrders(state);
         }
@@ -613,7 +672,7 @@
             state.host.append(state.pager);
             const table = makeTable(state);
             const head = table.createTHead().insertRow();
-            ['物品名称', '上架时间', '成交时间', '成交价格', '操作'].forEach(text => head.append(element('th', text)));
+            ['Name', 'Listed on', 'Acted on', 'Price', 'Action'].forEach(text => head.append(element('th', text)));
             state.body = table.createTBody();
             loadHistory(state, 1);
         }
@@ -628,7 +687,7 @@
                     node.setAttribute('aria-current', 'page');
                 }
             };
-            navigate('上一页', state.page - 1, state.page <= 1);
+            navigate('Previous', state.page - 1, state.page <= 1);
             const numbers = [...new Set([1, ...Array.from({ length: 5 }, (_, i) => state.page + i - 2), totalPages])].filter(p => p > 0 && p <= totalPages).sort((a, b) => a - b);
             numbers.forEach((page, i) => {
                 if (i && page - numbers[i - 1] > 1) {
@@ -636,7 +695,7 @@
                 }
                 navigate(String(page), page, page === state.page);
             });
-            navigate('下一页', state.page + 1, state.page >= totalPages);
+            navigate('Next', state.page + 1, state.page >= totalPages);
             const jump = element('input');
             jump.type = 'number';
             jump.min = '1';
@@ -644,9 +703,9 @@
             jump.step = '1';
             jump.value = String(state.page);
             jump.disabled = state.loading;
-            jump.setAttribute('aria-label', '跳转页码');
+            jump.setAttribute('aria-label', 'Page number');
             state.pager.append(jump);
-            const go = element('button', '跳转');
+            const go = element('button', 'Go');
             go.type = 'submit';
             go.disabled = state.loading;
             state.pager.append(go);
@@ -658,9 +717,9 @@
                 }
             };
             const size = element('select');
-            size.setAttribute('aria-label', '每页记录数');
+            size.setAttribute('aria-label', 'Rows per page');
             [25, 50, 100, 500].forEach(value => {
-                const option = element('option', `每页 ${value} 条`);
+                const option = element('option', `${value} per page`);
                 option.value = String(value);
                 size.append(option);
             });
@@ -671,7 +730,7 @@
                 const requestedSize = Number(size.value);
                 loadHistory(state, Math.floor(firstRecord / requestedSize) + 1, requestedSize);
             });
-            state.pager.append(size, element('span', `共 ${state.total.toLocaleString()} 条 / ${totalPages.toLocaleString()} 页`));
+            state.pager.append(size, element('span', `${state.total.toLocaleString(locale)} ${state.total === 1 ? 'record' : 'records'} / ${totalPages.toLocaleString(locale)} ${totalPages === 1 ? 'page' : 'pages'}`));
         }
 
         async function loadHistory(state, page, pageSize = state.pageSize) {
@@ -679,7 +738,7 @@
                 return;
             }
             state.loading = true;
-            state.status.textContent = `正在加载第 ${page} 页…`;
+            state.status.textContent = `Loading page ${page}…`;
             state.body.style.opacity = '0.5';
             renderPager(state);
             const start = (page - 1) * pageSize;
@@ -690,15 +749,15 @@
                     const offset = start + rows.length;
                     const data = await jsonRequest(`/market/myhistory/render/?query=&start=${offset}&count=${pageSize - rows.length}`, state);
                     if (!data.success || !Number.isFinite(Number(data.total_count)) || Number(data.start) !== offset) {
-                        throw new Error('Steam 未返回有效历史记录，请确认已登录。');
+                        throw new Error('Steam did not return valid market history. Please check that you are signed in.');
                     }
                     total = Number(data.total_count);
                     const batch = parseLegacy(data, 'history');
                     if (!batch.length && offset < total) {
-                        throw new Error('Steam 返回了空白分页，请稍后重试。');
+                        throw new Error('Steam returned an empty page. Please try again later.');
                     }
                     rows = rows.concat(batch);
-                    state.status.textContent = `正在加载第 ${page} 页：${rows.length} 条…`;
+                    state.status.textContent = `Loading page ${page}: ${rows.length} records…`;
                     if (rows.length < pageSize && start + rows.length < total) {
                         // If Steam clamps a request to 25/100, fill this display page without skipping records.
                         await pause(1000);
@@ -721,11 +780,11 @@
                     state.body.append(tr);
                 });
                 if (!rows.length) {
-                    const cell = element('td', '没有市场记录。');
+                    const cell = element('td', 'No market history.');
                     cell.colSpan = 5;
                     state.body.insertRow().append(cell);
                 }
-                state.status.textContent = `${total ? start + 1 : 0}–${start + rows.length} / ${total.toLocaleString()} 条。兼容接口的日期按 Steam 原样显示（可能不含年份）。`;
+                state.status.textContent = `${total ? start + 1 : 0}–${start + rows.length} / ${total.toLocaleString(locale)} records. Dates are shown as returned by Steam and may omit the year.`;
             } catch (error) {
                 showError(state, error, () => loadHistory(state, page, pageSize));
             } finally {
@@ -745,8 +804,8 @@
             if (state.kind !== 'history') {
                 renderOrders(state);
             }
-            state.status.replaceChildren(element('span', error.message || '加载失败，请重试。'));
-            button('重试', retry, state.status);
+            state.status.replaceChildren(element('span', error.message || 'Loading failed. Please try again.'));
+            button('Retry', retry, state.status);
         }
 
         function cleanup() {
@@ -784,8 +843,8 @@
             const state = { host, path, kind, controller: new AbortController(), rows: [], selected: new Set(), loading: false, busy: false };
             view = state;
             const title = element('div', null, 'see-toolbar');
-            title.append(element('strong', `Steam Economy Enhancer · ${kind === 'history' ? '市场记录' : kind === 'buyorders' ? '物品求购' : '在售挂单'}`));
-            button('显示 Steam 原始列表', () => {
+            title.append(element('strong', `Steam Economy Enhancer · ${kind === 'history' ? 'Market history' : kind === 'buyorders' ? 'Buy orders' : 'Sell listings'}`));
+            button('Show original Steam list', () => {
                 suppressedPath = path;
                 cleanup();
             }, title);
@@ -821,6 +880,9 @@
             .see-table th[aria-sort=descending] button::after { content:' ▼'; }
             .see-table tbody tr:hover { background:#243c50; }
             .see-table .see-item { min-width:230px; }
+            .see-item-content { display:flex; align-items:center; gap:8px; }
+            .see-item-image { display:block; width:32px; height:32px; flex:0 0 32px; object-fit:contain; }
+            .see-item-text { min-width:0; }
             .see-table a { color:#d8e9f5; text-decoration:none; overflow-wrap:anywhere; }
             .see-table a:hover { color:#66c0f4; text-decoration:underline; }
             .see-table small { display:block; color:#99aaba; font-size:12px; }

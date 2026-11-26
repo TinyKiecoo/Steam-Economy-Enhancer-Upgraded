@@ -22,6 +22,7 @@ function entry(id, price = 329, options = {}) {
             appid: 753,
             name: options.name || `Item ${id}`,
             market_hash_name: `123-${options.name || `Item ${id}`}`,
+            ...(options.icon ? { icon_url: options.icon } : {}),
             type: options.type || 'Trading Card',
             tags: [{ category: 'Game', localized_tag_name: options.game || 'Test Game' }]
         },
@@ -39,6 +40,7 @@ function query(kind, entries, more = false) {
 function legacyRow(id, name = `Item ${id}`, options = {}) {
     const prefix = options.history ? 'history_row' : options.buy ? 'mybuyorder' : 'mylisting';
     return `<div class="market_listing_row" id="${prefix}_${id}">
+        ${options.image ? `<img class="market_listing_item_img" src="${options.image}" alt="">` : ''}
         <span class="market_listing_item_name"><a class="market_listing_item_name_link" href="/market/listings/753/123-${id}">${name}</a></span>
         <span class="market_listing_game_name">Steam Trading Card</span>
         <span class="market_listing_price">${options.buy ? '<span class="market_listing_inline_buyorder_qty">99 @</span>' : ''}${options.price || 'HK$ 3.29'}</span>
@@ -62,8 +64,8 @@ async function waitFor(check) {
     assert.fail('UI did not settle');
 }
 
-function boot(t, kind = 'activelistings', queries = [], handler = () => assert.fail('Unexpected request')) {
-    const dom = new JSDOM(`<!doctype html><html lang="en-US"><head></head><body><main>${navigation}</main></body></html>`, {
+function boot(t, kind = 'activelistings', queries = [], handler = () => assert.fail('Unexpected request'), language = 'en-US') {
+    const dom = new JSDOM(`<!doctype html><html lang="${language}"><head></head><body><main>${navigation}</main></body></html>`, {
         url: `https://steamcommunity.com/market/${kind}`,
         runScripts: 'outside-only'
     });
@@ -116,8 +118,62 @@ test('SSR pages initialize without legacy Steam globals; compact rows retain all
     assert.equal(app.document.querySelectorAll('thead th').length, 6);
     assert.equal(app.rows()[0].dataset.id, '9007199254740993123');
     assert.ok(app.document.querySelector('#native').hasAttribute('data-see-native-market'));
-    app.click('修改');
+    app.click('Modify');
     assert.ok(app.document.querySelector('dialog').open);
+});
+
+test('sell listings and buy orders retain small lazy-loaded Steam thumbnails', t => {
+    for (const kind of ['activelistings', 'buyorders']) {
+        const app = boot(t, kind, [query(kind, [entry('1', 329, { icon: 'test-icon' })])]);
+        const image = app.document.querySelector('tbody .see-item-image');
+        assert.ok(image);
+        assert.equal(image.src, 'https://community.steamstatic.com/economy/image/test-icon/64fx64f');
+        assert.equal(image.width, 32);
+        assert.equal(image.height, 32);
+        assert.equal(app.window.getComputedStyle(image).width, '32px');
+        assert.equal(app.window.getComputedStyle(image).height, '32px');
+        assert.equal(image.loading, 'lazy');
+        assert.equal(image.alt, '');
+        image.dispatchEvent(new app.window.Event('error'));
+        assert.equal(app.document.querySelector('.see-item-image'), null);
+        assert.ok(app.rows()[0].textContent.includes('Item 1'));
+    }
+});
+
+test('compatibility buy orders and history retain their existing Steam images', async t => {
+    const imageURL = 'https://community.akamai.steamstatic.com/economy/image/test-icon/38fx38f';
+    for (const kind of ['buyorders', 'history']) {
+        const app = boot(t, kind, [], url => url.pathname === '/market/actions'
+            ? response({}, 429)
+            : response({ success: true, start: 0, total_count: 1, results_html: legacyRow('1', 'Item', { buy: kind === 'buyorders', history: kind === 'history', image: imageURL }) }));
+        await waitFor(() => app.document.querySelector('.see-item-image'));
+        const image = app.document.querySelector('.see-item-image');
+        assert.equal(image.src, imageURL);
+        assert.equal(image.width, 32);
+        assert.equal(image.height, 32);
+    }
+});
+
+test('untrusted compatibility image URLs are ignored', async t => {
+    const app = boot(t, 'history', [], () => response({ success: true, start: 0, total_count: 1, results_html: legacyRow('1', 'Item', { history: true, image: 'https://untrusted.example/image.png' }) }));
+    await waitFor(() => app.document.querySelector('tbody a'));
+    assert.equal(app.document.querySelector('tbody img'), null);
+});
+
+test('market controls and messages use English even when the Steam page language differs', async t => {
+    for (const kind of ['activelistings', 'buyorders', 'history']) {
+        const app = boot(t, kind, [query(kind, [entry('1')])], () => response({ success: true, start: 0, total_count: 1, results_html: legacyRow('1', 'Item', { history: true }) }), 'zh-CN');
+        if (kind === 'history') {
+            await waitFor(() => app.document.querySelector('tbody a'));
+        } else if (kind === 'activelistings') {
+            app.click('Modify');
+        }
+        const host = app.document.querySelector('#see-modern-market');
+        assert.doesNotMatch(host.textContent, /\p{Script=Han}/u);
+        for (const node of host.querySelectorAll('[aria-label], [title], [placeholder]')) {
+            assert.doesNotMatch([node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('placeholder')].join(' '), /\p{Script=Han}/u);
+        }
+    }
 });
 
 test('name, dates and numeric prices toggle ascending/descending; missing typical prices stay last', t => {
@@ -127,17 +183,17 @@ test('name, dates and numeric prices toggle ascending/descending; missing typica
         entry('3', 900, { name: 'Beta', time: 1795200000 })
     ])]);
     for (const [label, ascending, descending] of [
-        ['物品名称', ['2', '3', '1'], ['1', '3', '2']],
-        ['上架时间', ['1', '3', '2'], ['2', '3', '1']],
-        ['要价', ['2', '3', '1'], ['1', '3', '2']],
-        ['通常价格', ['1', '2', '3'], ['2', '1', '3']]
+        ['Name', ['2', '3', '1'], ['1', '3', '2']],
+        ['Listed on', ['1', '3', '2'], ['2', '3', '1']],
+        ['Asking price', ['2', '3', '1'], ['1', '3', '2']],
+        ['Typical price', ['1', '2', '3'], ['2', '1', '3']]
     ]) {
         app.click(label);
         assert.deepEqual(app.rows().map(row => row.dataset.id), ascending);
         app.click(label);
         assert.deepEqual(app.rows().map(row => row.dataset.id), descending);
     }
-    assert.equal(app.document.querySelector('th[aria-sort=descending] button').textContent, '通常价格');
+    assert.equal(app.document.querySelector('th[aria-sort=descending] button').textContent, 'Typical price');
 });
 
 test('search covers types, games, localized and decimal prices; selection survives filtering and sorting', t => {
@@ -153,7 +209,7 @@ test('search covers types, games, localized and decimal prices; selection surviv
     app.search('Booster Pack');
     app.click('Select All');
     app.search('');
-    app.click('要价');
+    app.click('Asking price');
     assert.equal(app.document.querySelectorAll('tbody input:checked').length, 2);
     app.click('Deselect All');
     assert.equal(app.document.querySelectorAll('tbody input:checked').length, 0);
@@ -185,6 +241,54 @@ test('new queries advance by actual returned count when Steam clamps page sizes'
     assert.equal(app.calls.length, 2);
 });
 
+test('buy-order batches appear before loading completes and preserve search, sorting and selection', async t => {
+    const makeEntries = (start, count) => Array.from({ length: count }, (_, i) => {
+        const id = start + i;
+        return entry(String(id), 329, { name: `${id % 2 === 0 ? 'Group' : 'Other'} ${id}`, quantity: id });
+    });
+    const pending = new Map();
+    const app = boot(t, 'buyorders', [query('buyorders', makeEntries(1, 50), true)], url => {
+        const [offset, count] = JSON.parse(url.searchParams.get('qp'));
+        assert.equal(count, 25);
+        return new Promise(resolve => pending.set(offset, resolve));
+    });
+    assert.equal(app.rows().length, 50);
+    assert.ok(pending.has(50));
+    app.search('Group');
+    app.click('Quantity');
+    app.click('Select All');
+    assert.equal(app.document.querySelectorAll('tbody input:checked').length, 25);
+    assert.ok([...app.document.querySelectorAll('button')].find(node => node.textContent === 'Cancel selected').disabled);
+
+    pending.get(50)(response({ data: { eResult: 1, rgBuyOrders: makeEntries(51, 25), bMore: true } }));
+    await waitFor(() => pending.has(75));
+    assert.equal(app.rows().length, 37);
+    assert.equal(app.document.querySelector('input[type=search]').value, 'Group');
+    assert.equal(app.document.querySelector('th[aria-sort=ascending] button').textContent, 'Quantity');
+    assert.equal(app.document.querySelectorAll('tbody input:checked').length, 25);
+    assert.ok(app.document.querySelector('thead input').indeterminate);
+    assert.match(app.document.querySelector('[role=status]').textContent, /75 loaded/);
+
+    pending.get(75)(response({ data: { eResult: 1, rgBuyOrders: makeEntries(76, 5), bMore: false } }));
+    await waitFor(() => ![...app.document.querySelectorAll('button')].find(node => node.textContent === 'Cancel selected').disabled);
+    assert.equal(app.rows().length, 40);
+    assert.equal(app.document.querySelectorAll('tbody input:checked').length, 25);
+    assert.deepEqual(app.rows().map(row => Number(row.dataset.id)), Array.from({ length: 40 }, (_, i) => (i + 1) * 2));
+    app.search('');
+    assert.equal(app.rows().length, 80);
+    assert.equal(new Set(app.rows().map(row => row.dataset.id)).size, 80);
+});
+
+test('already displayed buy orders survive failure of both remaining queries and compatibility fallback', async t => {
+    const app = boot(t, 'buyorders', [query('buyorders', [entry('1'), entry('2')], true)], url => response({}, url.pathname === '/market/actions' ? 429 : 503));
+    assert.equal(app.rows().length, 2);
+    app.click('Select All');
+    await waitFor(() => [...app.document.querySelectorAll('button')].some(node => node.textContent === 'Retry'));
+    assert.equal(app.rows().length, 2);
+    assert.equal(app.document.querySelectorAll('tbody input:checked').length, 2);
+    assert.match(app.document.querySelector('[role=status]').textContent, /503/);
+});
+
 test('compatibility refresh uses current prices instead of stale SSR prices', async t => {
     const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 329, { typical: 350 })])], url => {
         if (url.pathname === '/market/actions') {
@@ -192,10 +296,10 @@ test('compatibility refresh uses current prices instead of stale SSR prices', as
         }
         return response({ success: true, total_count: 1, results_html: legacyRow('1', 'Item 1', { price: 'HK$ 4.29 (HK$ 3.73)' }) });
     });
-    app.click('刷新');
+    app.click('Refresh');
     await waitFor(() => app.rows()[0]?.querySelectorAll('td')[3].textContent.includes('4.29'));
     assert.equal(app.rows()[0].querySelectorAll('td')[4].textContent, 'HK$3.50');
-    app.click('修改');
+    app.click('Modify');
     assert.equal(app.document.querySelector('dialog input').value, '3.73');
 });
 
@@ -204,15 +308,15 @@ test('missing wallet metadata cannot cause a compatibility price change in the w
         ? response({}, 429)
         : response({ success: true, total_count: 1, results_html: legacyRow('1', 'Item', { price: 'HK$ 3.29 (HK$ 2.87)' }) }));
     await waitFor(() => app.rows().length === 1);
-    app.click('修改');
+    app.click('Modify');
     assert.equal(app.document.querySelector('dialog'), null);
-    assert.match(app.document.querySelector('[role=status]').textContent, /无法确定挂单币种/);
+    assert.match(app.document.querySelector('[role=status]').textContent, /Cannot determine the listing currency/);
     assert.equal(app.calls.filter(call => call.options.method === 'POST').length, 0);
 });
 
 test('header selection is scoped to filtered rows and indicates partial selections', t => {
     const app = boot(t, 'buyorders', [query('buyorders', [entry('1', 329, { quantity: 20 }), entry('2', 329, { quantity: 3 })])]);
-    app.click('剩余数量');
+    app.click('Quantity');
     assert.deepEqual(app.rows().map(row => row.dataset.id), ['2', '1']);
     app.rows()[0].querySelector('input').click();
     assert.ok(app.document.querySelector('thead input').indeterminate);
@@ -225,8 +329,8 @@ test('header selection is scoped to filtered rows and indicates partial selectio
 test('sell removal recognizes the legacy empty-array response, while unknown responses stop', async t => {
     const app = boot(t, 'activelistings', [query('activelistings', [entry('1'), entry('2')])], (url, options, number) => response(number === 1 ? [] : {}));
     app.click('Select All');
-    app.click('下架所选物品');
-    await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('操作已停止'));
+    app.click('Remove selected');
+    await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('operation stopped'));
     assert.deepEqual(app.rows().map(row => row.dataset.id), ['2']);
     assert.equal(app.document.querySelectorAll('tbody input:checked').length, 1);
 });
@@ -243,14 +347,14 @@ test('batch removal confirms hidden selections, sends exact string IDs and stops
     app.window.confirm = message => {
  confirmations.push(message); return false; 
 };
-    app.click('下架所选物品');
+    app.click('Remove selected');
     assert.equal(app.calls.length, 0);
     app.window.confirm = message => {
  confirmations.push(message); return true; 
 };
-    app.click('下架所选物品');
-    await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('操作已停止'));
-    assert.match(confirmations.at(-1), /1 件被当前筛选隐藏/);
+    app.click('Remove selected');
+    await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('operation stopped'));
+    assert.match(confirmations.at(-1), /1 selected item is hidden by the current filter/);
     assert.equal(app.calls.length, 1);
     assert.match(app.calls[0].url, /9007199254740993123$/);
     app.search('');
@@ -265,7 +369,7 @@ test('successful batch removal deletes only confirmed successes and updates zero
         return response({ success: 1 });
     });
     app.click('Select All');
-    app.click('取消所选求购');
+    app.click('Cancel selected');
     await waitFor(() => app.calls.length === 2 && app.rows().length === 0);
     assert.match(app.document.querySelector('.see-status').textContent, /0 \/ 0/);
     assert.ok(app.document.querySelector('input[type=checkbox]').disabled);
@@ -277,12 +381,12 @@ test('modify submits seller price and currency to the native action and reports 
         assert.deepEqual(JSON.parse(options.body), { m: 'UpdateSellListingPrice', mp: ['9007199254740993123', 300, 2029] });
         return response({ data: { eResult: 1, eUpdateResult: 1, bRequiresConfirmation: true } });
     });
-    app.click('修改');
+    app.click('Modify');
     app.document.querySelector('dialog input').value = '3.00';
-    app.click('保存价格');
-    await waitFor(() => app.document.querySelector('dialog').textContent.includes('已提交'));
+    app.click('Save price');
+    await waitFor(() => app.document.querySelector('dialog').textContent.includes('Submitted'));
     assert.ok(app.document.querySelector('dialog button').disabled);
-    app.click('关闭');
+    app.click('Close');
     assert.equal(app.document.querySelector('dialog'), null);
 });
 
@@ -298,7 +402,7 @@ test('history defaults to 500, supports numbered pages, jumps and a partial fina
     app.click('2');
     await waitFor(() => app.document.querySelector('[aria-current=page]')?.textContent === '2');
     assert.equal(app.document.querySelectorAll('tbody tr').length, 500);
-    const jump = app.document.querySelector('input[aria-label="跳转页码"]');
+    const jump = app.document.querySelector('input[aria-label="Page number"]');
     jump.value = '3';
     app.document.querySelector('form').dispatchEvent(new app.window.Event('submit', { cancelable: true }));
     await waitFor(() => app.document.querySelector('[aria-current=page]')?.textContent === '3');
@@ -328,13 +432,13 @@ test('history errors retain the current page and provide retry; loading disables
     });
     await waitFor(() => app.document.querySelectorAll('tbody tr').length === 500);
     fail = true;
-    app.click('下一页');
+    app.click('Next');
     assert.ok(app.document.querySelector('form button').disabled);
     await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('429'));
     assert.equal(app.document.querySelectorAll('tbody tr').length, 500);
     assert.equal(app.document.querySelector('[aria-current=page]').textContent, '1');
     fail = false;
-    app.click('重试');
+    app.click('Retry');
     await waitFor(() => app.document.querySelector('[aria-current=page]')?.textContent === '2');
 });
 
@@ -358,7 +462,7 @@ test('changing history page size keeps the current position and rolls back after
     await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('429'));
     assert.equal(app.document.querySelector('select').value, '500');
     fail = false;
-    app.click('重试');
+    app.click('Retry');
     await waitFor(() => app.document.querySelectorAll('tbody tr').length === 100);
     select = app.document.querySelector('select');
     assert.equal(select.value, '100');
@@ -370,12 +474,12 @@ test('untrusted names render as text; native content can be restored; SPA naviga
     const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 329, { name: '<img src=x onerror=alert(1)>' })]), query('buyorders', [])]);
     assert.equal(app.document.querySelectorAll('#see-modern-market img').length, 0);
     assert.match(app.rows()[0].textContent, /<img/);
-    app.click('显示 Steam 原始列表');
+    app.click('Show original Steam list');
     assert.equal(app.document.querySelector('#see-modern-market'), null);
     assert.ok(!app.document.querySelector('#native').hasAttribute('data-see-native-market'));
     app.window.history.pushState({}, '', '/market/buyorders');
     app.window.dispatchEvent(new app.window.Event('popstate'));
     await waitFor(() => app.document.querySelector('#see-modern-market'));
     assert.equal(app.document.querySelectorAll('#see-modern-market').length, 1);
-    assert.match(app.document.querySelector('#see-modern-market').textContent, /物品求购/);
+    assert.match(app.document.querySelector('#see-modern-market').textContent, /Buy orders/);
 });
