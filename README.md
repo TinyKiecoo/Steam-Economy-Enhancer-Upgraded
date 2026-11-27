@@ -36,7 +36,7 @@ This can be defined in Steam Economy Enhancer's settings, which you can find at 
 
 *[Violentmonkey](https://violentmonkey.github.io/), [Tampermonkey](https://www.tampermonkey.net/) or any similar plugin is required.*
 
-[Install Steam Economy Enhancer](https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js)
+[Install Steam Economy Enhancer Upgraded](https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/raw/refs/heads/master/code.user.js)
 
 ### Screenshots
 
