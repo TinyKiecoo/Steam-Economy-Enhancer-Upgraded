@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name               Steam-Economy-Enhancer-Upgraded
+// @name               Steam Economy Enhancer Upgraded
 // @icon               data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20267%20267%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22background%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20stop-color%3D%22%23303b50%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23111722%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22gold%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20stop-color%3D%22%23f3e4ba%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23b49354%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Ccircle%20cx%3D%22133.5%22%20cy%3D%22133.5%22%20r%3D%22131.5%22%20fill%3D%22url%28%23background%29%22%20stroke%3D%22%23bca26b%22%20stroke-opacity%3D%22.45%22%20stroke-width%3D%222%22%2F%3E%0A%20%20%3Cpath%20fill%3D%22url%28%23gold%29%22%20fill-rule%3D%22evenodd%22%20d%3D%22m50%20133%2083-83%2084%2083-84%2084-83-84Zm83%2062%2062-61-62-62v123Z%22%2F%3E%0A%3C%2Fsvg%3E
 // @namespace          https://github.com/TinyKiecoo
 // @author             TinyKiecoo
 // @license            MIT
-// @version            7.7.1
+// @version            7.7.2
 // @description        Enhances the Steam Inventory and Steam Market.
 // @description:zh-CN  增强 Steam 库存、社区市场和交易报价。
 // @description:ru     Улучшает инвентарь, торговую площадку и предложения обмена Steam.
