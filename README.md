@@ -1,14 +1,14 @@
-# <img src="assets/icon.svg" width="32" align="center"> Steam Economy Enhancer
+# <img src="assets/icon.svg" width="32" align="center"> Steam Economy Enhancer Upgraded
 
+An upgraded version of Steam Economy Enhancer for new market layout.  
 A free userscript to enhance your Steam Inventory, Steam Market and Steam Tradeoffers.
 
 It adds the following features to the Steam Market:
 
-*    Detect overpriced and underpriced items.
-*    Select 5/25/all (overpriced) items and remove them at once.
-*    (Automatically) relist overpriced items.
+*    Select items and remove or relist them at once.
 *    Sort and search items by name, price or date.
 *    Total price for listings, as seller and buyer.
+*    Expand detailed information for orderbook.
 
 It adds the following features to the Steam Inventory:
 
@@ -34,32 +34,31 @@ This can be defined in Steam Economy Enhancer's settings, which you can find at 
 
 ### Download
 
-[Install Steam Economy Enhancer](https://raw.githubusercontent.com/Nuklon/Steam-Economy-Enhancer/master/code.user.js)
+*[Violentmonkey](https://violentmonkey.github.io/), [Tampermonkey](https://www.tampermonkey.net/) or any similar plugin is required.*
 
-*[Violentmonkey](https://violentmonkey.github.io/) is required to install.*
+[Install Steam Economy Enhancer](https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js)
 
 ### Screenshots
-
 
 *Market*
 
 ![Market](assets/market.png)
 
-
 *Inventory*
 
 ![Inventory](assets/inventory.png)
-
 
 *Options*
 
 ![Options](assets/settings.png)
 
-
 *Trade offers*
 
 ![Tradeoffers](assets/tradeoffer.png)
 
+*Orderbooks*
+
+![Orderbooks](assets/orderbooks.png)
 
 ### License
 
