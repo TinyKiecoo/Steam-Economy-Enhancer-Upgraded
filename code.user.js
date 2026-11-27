@@ -1,26 +1,28 @@
 // ==UserScript==
-// @name         Steam-Economy-Enhancer-Upgraded
-// @icon         data:image/svg+xml,%0A%3Csvg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" clip-rule="evenodd" viewBox="0 0 267 267"%3E%3Ccircle cx="133.3" cy="133.3" r="133.3" fill="%2326566c"/%3E%3Cpath fill="%23ebebeb" fill-rule="nonzero" d="m50 133 83-83 84 83-84 84-83-84Zm83 62 62-61-62-62v123Z"/%3E%3C/svg%3E
-// @namespace    https://github.com/TinyKiecoo
-// @author       TinyKiecoo
-// @license      MIT
-// @version      7.6.1
-// @description  Enhances the Steam Inventory and Steam Market.
-// @match        https://steamcommunity.com/id/*/inventory*
-// @match        https://steamcommunity.com/profiles/*/inventory*
-// @match        https://steamcommunity.com/market*
-// @match        https://steamcommunity.com/tradeoffer*
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/async/3.2.6/async.js
-// @require      https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js
-// @require      https://raw.githubusercontent.com/kapetan/jquery-observe/ca67b735bb3ae8d678d1843384ebbe7c02466c61/jquery-observe.js
-// @grant        unsafeWindow
-// @homepageURL  https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
-// @homepage     https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
-// @supportURL   https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/issues
-// @downloadURL  https://raw.githubusercontent.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js
-// @updateURL    https://raw.githubusercontent.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js
+// @name               Steam-Economy-Enhancer-Upgraded
+// @icon               data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20267%20267%22%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22background%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20stop-color%3D%22%23303b50%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23111722%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22gold%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%0A%20%20%20%20%20%20%3Cstop%20stop-color%3D%22%23f3e4ba%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23b49354%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Ccircle%20cx%3D%22133.5%22%20cy%3D%22133.5%22%20r%3D%22131.5%22%20fill%3D%22url%28%23background%29%22%20stroke%3D%22%23bca26b%22%20stroke-opacity%3D%22.45%22%20stroke-width%3D%222%22%2F%3E%0A%20%20%3Cpath%20fill%3D%22url%28%23gold%29%22%20fill-rule%3D%22evenodd%22%20d%3D%22m50%20133%2083-83%2084%2083-84%2084-83-84Zm83%2062%2062-61-62-62v123Z%22%2F%3E%0A%3C%2Fsvg%3E
+// @namespace          https://github.com/TinyKiecoo
+// @author             TinyKiecoo
+// @license            MIT
+// @version            7.7.0
+// @description        Enhances the Steam Inventory and Steam Market.
+// @description:zh-CN  增强 Steam 库存、社区市场和交易报价。
+// @description:ru     Улучшает инвентарь, торговую площадку и предложения обмена Steam.
+// @match              https://steamcommunity.com/id/*/inventory*
+// @match              https://steamcommunity.com/profiles/*/inventory*
+// @match              https://steamcommunity.com/market*
+// @match              https://steamcommunity.com/tradeoffer*
+// @require            https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js
+// @require            https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js
+// @require            https://cdnjs.cloudflare.com/ajax/libs/async/3.2.6/async.js
+// @require            https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js
+// @require            https://raw.githubusercontent.com/kapetan/jquery-observe/ca67b735bb3ae8d678d1843384ebbe7c02466c61/jquery-observe.js
+// @grant              unsafeWindow
+// @homepageURL        https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
+// @homepage           https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
+// @supportURL         https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/issues
+// @downloadURL        https://raw.githubusercontent.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js
+// @updateURL          https://raw.githubusercontent.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded/master/code.user.js
 // ==/UserScript==
 
 /*
@@ -59,6 +61,7 @@
 // jQuery is already added by Steam, force no conflict mode.
 (function ($, async) {
     $.noConflict(true);
+    const { t, locale } = createI18n();
 
     // The SSR market has neither the legacy DOM nor GetCurrencyCode/g_rgWalletInfo.
     // Keep its initialization ahead of all code which requires those globals.
@@ -67,13 +70,911 @@
         return;
     }
 
+    //#region Localization
+    function createI18n() {
+        let ssr = unsafeWindow.SSR;
+        if (!ssr) {
+            try {
+                ssr = JSON.parse(document.getElementById('valve-ssr-data')?.textContent || 'null');
+            } catch {
+                ssr = null;
+            }
+        }
+        const cookie = document.cookie.split(';').map(part => part.trim()).find(part => part.startsWith('Steam_Language='));
+        let cookieLanguage;
+        try {
+            cookieLanguage = cookie ? decodeURIComponent(cookie.slice('Steam_Language='.length)) : '';
+        } catch {
+            cookieLanguage = '';
+        }
+        const language = String(unsafeWindow.g_strLanguage || unsafeWindow.g_steamLanguage || ssr?.Config?.LANGUAGE
+            || ssr?.renderContext?.localizationSettings?.languages?.[0]?.strLanguage
+            || ssr?.renderContext?.localizationSettings?.languages?.[0]?.strISOCode
+            || new URLSearchParams(location.search).get('l') || document.documentElement.lang || cookieLanguage || 'english').toLowerCase().replaceAll('_', '-');
+        const locale = /^(schinese|zh|zh-cn|zh-hans(?:-cn)?)$/.test(language) ? 'zh-CN'
+            : /^(russian|ru(?:-ru)?)$/.test(language) ? 'ru-RU' : 'en-US';
+        const messages = {
+            'Steam Community Items': [
+                'Steam 社区物品',
+                'Предметы сообщества Steam'
+            ],
+            Purchased: [
+                '已购入',
+                'Куплено'
+            ],
+            Sold: [
+                '已售出',
+                'Продано'
+            ],
+            'Too many Steam requests. Please try again later (429).': [
+                'Steam 请求过于频繁，请稍后重试（429）。',
+                'Слишком много запросов к Steam. Повторите попытку позже (429).'
+            ],
+            'Steam returned a non-JSON response. Please check that you are still signed in.': [
+                'Steam 返回的数据格式无效，请确认仍处于登录状态。',
+                'Steam вернул ответ в неверном формате. Проверьте, выполнен ли вход.'
+            ],
+            'Steam request failed ({p0}).': [
+                'Steam 请求失败（{p0}）。',
+                'Ошибка запроса к Steam ({p0}).'
+            ],
+            'Steam {p0} failed ({p1}).': [
+                'Steam {p0} 失败（{p1}）。',
+                'Ошибка Steam {p0} ({p1}).'
+            ],
+            'no data': [
+                '无数据',
+                'нет данных'
+            ],
+            'no result': [
+                '无结果',
+                'нет результата'
+            ],
+            'Loading items…': [
+                '正在加载物品…',
+                'Загрузка предметов…'
+            ],
+            'Steam returned a duplicate or empty page. Please refresh and try again.': [
+                'Steam 返回了重复或空白页面，请刷新后重试。',
+                'Steam вернул повторную или пустую страницу. Обновите страницу и повторите попытку.'
+            ],
+            'Steam did not return valid listings. Please check that you are signed in.': [
+                'Steam 未返回有效挂单，请确认已登录。',
+                'Steam не вернул корректные лоты. Проверьте, выполнен ли вход.'
+            ],
+            'Steam could not return the next batch of listings. Please refresh and try again.': [
+                '无法加载下一批挂单，请刷新后重试。',
+                'Не удалось загрузить следующую порцию лотов. Обновите страницу и повторите попытку.'
+            ],
+            'Using the Steam compatibility endpoint. Unavailable typical prices are shown as —.': [
+                '正在使用 Steam 兼容接口，无法获取的通常价格显示为 —。',
+                'Используется совместимый интерфейс Steam. Недоступные обычные цены обозначены знаком —.'
+            ],
+            'Select {p0}': [
+                '选择 {p0}',
+                'Выбрать {p0}'
+            ],
+            Cancel: [
+                '取消',
+                'Отменить'
+            ],
+            Modify: [
+                '修改',
+                'Изменить'
+            ],
+            Remove: [
+                '下架',
+                'Снять'
+            ],
+            'Loading…': [
+                '正在加载…',
+                'Загрузка…'
+            ],
+            'No matching items.': [
+                '没有符合条件的物品。',
+                'Подходящих предметов нет.'
+            ],
+            'Showing {p0} / {p1} items · {p2} selected': [
+                '显示 {p0} / {p1} 件物品 · 已选 {p2} 件',
+                'Показано: {p0} из {p1} · выбрано: {p2}'
+            ],
+            'Loading items… {p0} loaded.': [
+                '正在加载物品… 已加载 {p0} 件。',
+                'Загрузка предметов… Загружено: {p0}.'
+            ],
+            '{p0} buyer pays / {p1} you receive': [
+                '买家支付 {p0} / 您将收到 {p1}',
+                'Покупатель платит {p0} / вы получите {p1}'
+            ],
+            unavailable: [
+                '无法获取',
+                'недоступно'
+            ],
+            'Buy order commitment': [
+                '求购总金额',
+                'Сумма заявок на покупку'
+            ],
+            'Sell listing total': [
+                '挂单总金额',
+                'Общая сумма лотов'
+            ],
+            ' (loaded so far)': [
+                '（当前已加载）',
+                ' (загружено на данный момент)'
+            ],
+            'Filtered: {p0}': [
+                '筛选结果：{p0}',
+                'По фильтру: {p0}'
+            ],
+            'Selected: {p0}': [
+                '已选物品：{p0}',
+                'Выбрано: {p0}'
+            ],
+            'Steam session not found. Please sign in again and retry.': [
+                '未找到 Steam 会话，请重新登录后重试。',
+                'Сессия Steam не найдена. Войдите снова и повторите попытку.'
+            ],
+            'Steam did not confirm cancellation ({p0}).': [
+                'Steam 未确认取消操作（{p0}）。',
+                'Steam не подтвердил отмену ({p0}).'
+            ],
+            'Cancel these {p0} buy orders?': [
+                '取消这 {p0} 项求购订单？',
+                'Отменить выбранные заявки на покупку ({p0})?'
+            ],
+            'Remove these {p0} listings?': [
+                '下架这 {p0} 项挂单？',
+                'Снять выбранные лоты ({p0})?'
+            ],
+            'Hidden selected items: {p0}.': [
+                '被当前筛选条件隐藏的已选物品：{p0} 件。',
+                'Выбранных предметов, скрытых фильтром: {p0}.'
+            ],
+            'Cancelling {p0} / {p1}…': [
+                '正在取消 {p0} / {p1}…',
+                'Отмена: {p0} / {p1}…'
+            ],
+            'Successfully cancelled {p0} items.': [
+                '已成功取消 {p0} 项订单。',
+                'Успешно отменено: {p0}.'
+            ],
+            'Cancelled {p0} items; operation stopped: {p1} Refresh to verify the results before trying again.': [
+                '已取消 {p0} 项订单，操作已停止：{p1} 请刷新核对结果后再重试。',
+                'Отменено: {p0}; операция остановлена: {p1} Обновите страницу и проверьте результат перед повторной попыткой.'
+            ],
+            'Steam did not confirm the price change ({p0}).': [
+                'Steam 未确认改价操作（{p0}）。',
+                'Steam не подтвердил изменение цены ({p0}).'
+            ],
+            'Steam did not return a complete order book.': [
+                'Steam 未返回完整订单簿。',
+                'Steam не вернул полную книгу заявок.'
+            ],
+            'Reprice selected listings': [
+                '修改选中挂单的价格',
+                'Изменение цен выбранных лотов'
+            ],
+            'Use the current lowest sell price per item. Asking prices include Steam and publisher fees; rounding may leave the buyer price slightly below the target. All selected items, including filtered-out items, appear here.': [
+                '按当前市场最低卖价重新定价。卖价包含 Steam 和发行商手续费，取整后可能略低于目标价格。这里列出全部已选物品，包括被筛选条件隐藏的物品。',
+                'Используется текущая минимальная цена продажи за предмет. Цены включают комиссии Steam и издателя; из-за округления итоговая цена может быть немного ниже целевой. Здесь показаны все выбранные предметы, включая скрытые фильтром.'
+            ],
+            'Loading fresh prices and fee rules…': [
+                '正在获取最新价格和手续费规则…',
+                'Загрузка актуальных цен и правил расчёта комиссий…'
+            ],
+            Item: [
+                '物品',
+                'Предмет'
+            ],
+            'Current ask': [
+                '当前卖价',
+                'Текущая цена'
+            ],
+            'Lowest ask': [
+                '最低卖价',
+                'Минимальная цена'
+            ],
+            'New ask': [
+                '新卖价',
+                'Новая цена'
+            ],
+            'You receive': [
+                '您将收到',
+                'Вы получите'
+            ],
+            Status: [
+                '状态',
+                'Статус'
+            ],
+            'Apply price changes': [
+                '提交改价',
+                'Применить цены'
+            ],
+            'This preview is over one minute old. Close it and prepare a fresh preview.': [
+                '此预览已超过一分钟，请关闭后重新获取价格。',
+                'Предпросмотру более минуты. Закройте его и загрузите актуальные цены.'
+            ],
+            'Directly update {p0} listing prices shown in this preview?': [
+                '直接修改预览中这 {p0} 项挂单的价格？',
+                'Применить показанные цены к выбранным лотам ({p0})?'
+            ],
+            'Submitting…': [
+                '正在提交…',
+                'Отправка…'
+            ],
+            'Confirm in Steam app / email': [
+                '请在 Steam 手机应用或邮件中确认',
+                'Подтвердите в приложении Steam или по почте'
+            ],
+            Updated: [
+                '已更新',
+                'Обновлено'
+            ],
+            'Updated {p0} listings. {p1} require Steam confirmation. Refresh to verify final prices.': [
+                '已更新 {p0} 项挂单，其中 {p1} 项需要 Steam 确认。请刷新核对最终价格。',
+                'Обновлено лотов: {p0}. Требуют подтверждения Steam: {p1}. Обновите страницу и проверьте итоговые цены.'
+            ],
+            'Updated {p0} listings; stopped: {p1} Refresh to verify results before trying again.': [
+                '已更新 {p0} 项挂单，操作已停止：{p1} 请刷新核对结果后再重试。',
+                'Обновлено лотов: {p0}; операция остановлена: {p1} Обновите страницу и проверьте результат перед повторной попыткой.'
+            ],
+            Close: [
+                '关闭',
+                'Закрыть'
+            ],
+            'Steam wallet rounding rules are unavailable.': [
+                '无法获取 Steam 钱包的价格取整规则。',
+                'Правила округления кошелька Steam недоступны.'
+            ],
+            'Cannot determine the item identity or matching wallet currency.': [
+                '无法确定物品信息或对应的钱包币种。',
+                'Не удалось определить предмет или соответствующую валюту кошелька.'
+            ],
+            'Order book currency does not match the listing.': [
+                '订单簿币种与挂单币种不一致。',
+                'Валюта книги заявок не совпадает с валютой лота.'
+            ],
+            'Steam fee rules are unavailable.': [
+                '无法获取 Steam 手续费规则。',
+                'Правила расчёта комиссий Steam недоступны.'
+            ],
+            'Pending confirmation; skipped': [
+                '等待确认，已跳过',
+                'Ожидает подтверждения; пропущено'
+            ],
+            'No valid lowest ask; skipped': [
+                '没有有效最低卖价，已跳过',
+                'Нет допустимой минимальной цены; пропущено'
+            ],
+            'Unchanged; skipped': [
+                '价格未变，已跳过',
+                'Цена не изменилась; пропущено'
+            ],
+            Ready: [
+                '可提交',
+                'Готово'
+            ],
+            '{p0} / {p1} listings ready. Review the prices before applying. Prices are a snapshot taken while preparing this preview.': [
+                '{p0} / {p1} 项挂单可提交。请核对价格后再提交，价格以生成预览时获取的数据为准。',
+                'Готово лотов: {p0} / {p1}. Проверьте цены перед применением. Это снимок цен, полученных при подготовке предпросмотра.'
+            ],
+            'Could not prepare prices: {p0}': [
+                '无法生成价格预览：{p0}',
+                'Не удалось подготовить цены: {p0}'
+            ],
+            'Cannot determine the listing currency. Please refresh the page or modify it in the original Steam list.': [
+                '无法确定挂单币种，请刷新页面或在 Steam 原始列表中修改。',
+                'Не удалось определить валюту лота. Обновите страницу или измените цену в исходном списке Steam.'
+            ],
+            'Modify listing': [
+                '修改挂单',
+                'Изменить лот'
+            ],
+            'Asking price: {p0} · Typical price: {p1}': [
+                '卖价：{p0} · 通常价格：{p1}',
+                'Цена продажи: {p0} · Обычная цена: {p1}'
+            ],
+            'You receive per item (after fees):': [
+                '每件物品的税后收入：',
+                'Вы получите за предмет (после комиссий):'
+            ],
+            'Lowering the price may require confirmation in the Steam mobile app or by email.': [
+                '降低价格可能需要在 Steam 手机应用或邮件中确认。',
+                'Снижение цены может потребовать подтверждения в приложении Steam или по почте.'
+            ],
+            'Save price': [
+                '保存价格',
+                'Сохранить цену'
+            ],
+            'Enter a price greater than zero with at most two decimal places.': [
+                '请输入大于零且最多保留两位小数的价格。',
+                'Введите цену больше нуля, не более двух знаков после запятой.'
+            ],
+            'Change the amount you receive per item for {p0} to {p1}?': [
+                '将 {p0} 每件物品的税后收入改为 {p1}？',
+                'Изменить сумму, получаемую за предмет {p0}, на {p1}?'
+            ],
+            'Submitted. Confirm in the Steam mobile app or by email, then refresh the list.': [
+                '已提交，请在 Steam 手机应用或邮件中确认后刷新列表。',
+                'Отправлено. Подтвердите в приложении Steam или по почте, затем обновите список.'
+            ],
+            'Price updated. Refresh the list to see the final Steam price.': [
+                '价格已更新，请刷新列表查看 Steam 的最终价格。',
+                'Цена обновлена. Обновите список, чтобы увидеть итоговую цену Steam.'
+            ],
+            '{p0} Refresh to verify the result before trying again.': [
+                '{p0} 请刷新核对结果后再重试。',
+                '{p0} Обновите страницу и проверьте результат перед повторной попыткой.'
+            ],
+            'Remove this item': [
+                '下架此物品',
+                'Снять этот предмет с продажи'
+            ],
+            'Search names, games, types, prices…': [
+                '搜索物品名、游戏、类型、价格…',
+                'Поиск по названию, игре, типу, цене…'
+            ],
+            'Search all item information': [
+                '搜索物品的全部信息',
+                'Поиск по всем сведениям о предмете'
+            ],
+            'Cancel selected': [
+                '取消选中求购',
+                'Отменить выбранные'
+            ],
+            'Remove selected': [
+                '下架选中物品',
+                'Снять выбранные'
+            ],
+            'Reprice selected': [
+                '重新上架选中物品',
+                'Изменить цены выбранных'
+            ],
+            'Reprice selected listings to the current lowest sell price': [
+                '将选中挂单改为当前市场最低卖价',
+                'Изменить цены выбранных лотов на текущую минимальную цену продажи'
+            ],
+            'Select All': [
+                '全选',
+                'Выбрать всё'
+            ],
+            'Deselect All': [
+                '取消全选',
+                'Снять выделение'
+            ],
+            Refresh: [
+                '刷新',
+                'Обновить'
+            ],
+            'Select all matching items': [
+                '选择所有符合筛选条件的物品',
+                'Выбрать все подходящие предметы'
+            ],
+            Name: [
+                '名称',
+                'Название'
+            ],
+            Quantity: [
+                '数量',
+                'Количество'
+            ],
+            'Listed on': [
+                '上架时间',
+                'Дата выставления'
+            ],
+            'Bid price': [
+                '求购价',
+                'Цена покупки'
+            ],
+            'Asking price': [
+                '卖价',
+                'Цена продажи'
+            ],
+            'Typical price': [
+                '通常价格',
+                'Обычная цена'
+            ],
+            Action: [
+                '操作',
+                'Действие'
+            ],
+            'Sort by {p0} in ascending or descending order': [
+                '按{p0}升序或降序排序',
+                'Сортировать по полю «{p0}» по возрастанию или убыванию'
+            ],
+            'Acted on': [
+                '交易时间',
+                'Дата операции'
+            ],
+            Price: [
+                '价格',
+                'Цена'
+            ],
+            'Item name': [
+                '物品名称',
+                'Название предмета'
+            ],
+            'Search history by item name': [
+                '按物品名称搜索历史记录',
+                'Поиск в истории по названию предмета'
+            ],
+            'Enter all or part of an item name': [
+                '输入完整或部分物品名称',
+                'Введите название предмета или его часть'
+            ],
+            'From date': [
+                '起始日期',
+                'Дата начала'
+            ],
+            'To date': [
+                '结束日期',
+                'Дата окончания'
+            ],
+            'Start search': [
+                '开始搜索',
+                'Начать поиск'
+            ],
+            'Stopping search…': [
+                '正在停止搜索…',
+                'Остановка поиска…'
+            ],
+            'Clear search': [
+                '清除搜索',
+                'Очистить поиск'
+            ],
+            'Search by item name, transaction date, or both. Dates use your local time; the end date is included.': [
+                '可按物品名称、交易日期或两者组合搜索。日期使用本地时间，并包含结束日期当天。',
+                'Поиск по названию предмета, дате операции или обоим условиям. Используется местное время; конечная дата включается целиком.'
+            ],
+            'Stop search': [
+                '停止搜索',
+                'Остановить поиск'
+            ],
+            'Steam did not return valid market history. Please check that you are signed in.': [
+                'Steam 未返回有效市场记录，请确认已登录。',
+                'Steam не вернул корректную историю рынка. Проверьте, выполнен ли вход.'
+            ],
+            'Steam returned an empty page. Please try again later.': [
+                'Steam 返回了空白页面，请稍后重试。',
+                'Steam вернул пустую страницу. Повторите попытку позже.'
+            ],
+            'No market history.': [
+                '暂无市场记录。',
+                'История рынка пуста.'
+            ],
+            'No matching records found.': [
+                '没有找到符合条件的记录。',
+                'Подходящих записей не найдено.'
+            ],
+            'Steam did not return complete transaction dates. The date search cannot continue.': [
+                'Steam 未返回完整交易时间，无法继续按日期搜索。',
+                'Steam не вернул полные даты операций. Поиск по датам не может быть продолжен.'
+            ],
+            'Enter an item name, a start date or an end date.': [
+                '请输入物品名称，或设置起始日期、结束日期。',
+                'Введите название предмета, дату начала или дату окончания.'
+            ],
+            'Choose a valid date range with the start date on or before the end date.': [
+                '请选择有效的日期范围，起始日期不能晚于结束日期。',
+                'Выберите допустимый период: дата начала не должна быть позже даты окончания.'
+            ],
+            'Starting search…': [
+                '正在开始搜索…',
+                'Начало поиска…'
+            ],
+            'Searching… {p0} / {p1} records checked · {p2} matches.': [
+                '正在搜索… 已检查 {p0} / {p1} 条记录 · 匹配 {p2} 条。',
+                'Поиск… Проверено записей: {p0} / {p1} · найдено: {p2}.'
+            ],
+            'Locating records in the selected date range…': [
+                '正在定位所选日期范围内的记录…',
+                'Поиск записей за выбранный период…'
+            ],
+            'Search complete. Checked {p0} records; found {p1} matches.': [
+                '搜索完成，已检查 {p0} 条记录，找到 {p1} 条匹配记录。',
+                'Поиск завершён. Проверено записей: {p0}; найдено: {p1}.'
+            ],
+            'Search stopped. Checked {p0} records; found {p1} matches.': [
+                '搜索已停止，已检查 {p0} 条记录，找到 {p1} 条匹配记录。',
+                'Поиск остановлен. Проверено записей: {p0}; найдено: {p1}.'
+            ],
+            'Search stopped: {p0} Found {p1} matches. You can start a new search.': [
+                '搜索已停止：{p0} 已找到 {p1} 条匹配记录，可重新开始搜索。',
+                'Поиск остановлен: {p0} Найдено: {p1}. Можно начать новый поиск.'
+            ],
+            Previous: [
+                '上一页',
+                'Назад'
+            ],
+            Next: [
+                '下一页',
+                'Далее'
+            ],
+            'Page number': [
+                '页码',
+                'Номер страницы'
+            ],
+            Go: [
+                '跳转',
+                'Перейти'
+            ],
+            'Rows per page': [
+                '每页记录数',
+                'Записей на странице'
+            ],
+            '{p0} per page': [
+                '每页 {p0} 条',
+                '{p0} на странице'
+            ],
+            'Loading page {p0}…': [
+                '正在加载第 {p0} 页…',
+                'Загрузка страницы {p0}…'
+            ],
+            'Loading page {p0}: {p1} records…': [
+                '正在加载第 {p0} 页：已获取 {p1} 条记录…',
+                'Загрузка страницы {p0}: записей получено {p1}…'
+            ],
+            '{p0}–{p1} / {p2} records. Dates are shown as returned by Steam and may omit the year.': [
+                '第 {p0}–{p1} 条，共 {p2} 条记录。日期按 Steam 返回的数据展示，可能不包含年份。',
+                'Записи {p0}–{p1} из {p2}. Даты показаны в том виде, в котором их вернул Steam; год может отсутствовать.'
+            ],
+            'Loading failed. Please try again.': [
+                '加载失败，请重试。',
+                'Ошибка загрузки. Повторите попытку.'
+            ],
+            Retry: [
+                '重试',
+                'Повторить'
+            ],
+            'Market history': [
+                '市场记录',
+                'История рынка'
+            ],
+            'Buy orders': [
+                '求购订单',
+                'Заявки на покупку'
+            ],
+            'Sell listings': [
+                '出售挂单',
+                'Лоты на продажу'
+            ],
+            'Show original Steam list': [
+                '显示 Steam 原始列表',
+                'Показать исходный список Steam'
+            ],
+            'Show 5 more price levels': [
+                '再显示 5 档',
+                'Ещё 5 уровней цен'
+            ],
+            'All price levels shown': [
+                '已显示全部档位',
+                'Показаны все уровни цен'
+            ],
+            more: [
+                '更高',
+                'выше'
+            ],
+            less: [
+                '更低',
+                'ниже'
+            ],
+            '{p0} or {p1}': [
+                '{p0} 或{p1}',
+                '{p0} и {p1}'
+            ],
+            'Your orders for this item': [
+                '您对此物品的订单',
+                'Ваши заявки на этот предмет'
+            ],
+            'Your sell listings': [
+                '您的出售挂单',
+                'Ваши лоты на продажу'
+            ],
+            'Your buy orders': [
+                '您的求购订单',
+                'Ваши заявки на покупку'
+            ],
+            'Order book expansion unavailable: {p0}': [
+                '订单簿暂时无法展开：{p0}',
+                'Расширение книги заявок недоступно: {p0}'
+            ],
+            'Request was not sent to the server, something went wrong': [
+                '发生错误，请求未发送至服务器。',
+                'Произошла ошибка; запрос не был отправлен на сервер.'
+            ],
+            'Request failed with status {p0} ({p1})': [
+                '请求失败，状态码 {p0}（{p1}）',
+                'Ошибка запроса: статус {p0} ({p1})'
+            ],
+            'http error': [
+                'HTTP 错误',
+                'ошибка HTTP'
+            ],
+            'Sell all items': [
+                '出售全部物品',
+                'Продать все предметы'
+            ],
+            'Sell all duplicate items': [
+                '出售全部重复物品',
+                'Продать все дубликаты'
+            ],
+            'Sell selected items automatically': [
+                '自动出售选中物品',
+                'Автоматически продать выбранные предметы'
+            ],
+            'Sell all cards': [
+                '出售全部集换式卡牌',
+                'Продать все карточки'
+            ],
+            'Turn selected items into gems': [
+                '将选中物品分解为宝石',
+                'Превратить выбранные предметы в самоцветы'
+            ],
+            'Unpack all booster packs': [
+                '拆开全部补充包',
+                'Распаковать все наборы карточек'
+            ],
+            'Unpack selected booster packs': [
+                '拆开选中补充包',
+                'Распаковать выбранные наборы карточек'
+            ],
+            'Turn all duplicate items into gems': [
+                '将全部重复物品分解为宝石',
+                'Превратить все дубликаты в самоцветы'
+            ],
+            'Sell all crates (TF2)': [
+                '出售全部补给箱（TF2）',
+                'Продать все ящики (TF2)'
+            ],
+            'Loading inventory items': [
+                '正在加载库存物品',
+                'Загрузка предметов инвентаря'
+            ],
+            'No booster packs found in the inventory to unpack.': [
+                '库存中没有可拆开的补充包。',
+                'В инвентаре нет наборов карточек для распаковки.'
+            ],
+            'Bulk sell': [
+                '批量出售',
+                'Массовая продажа'
+            ],
+            'Steam multisell requires commodity items from the same inventory.': [
+                'Steam 批量出售仅支持同一库存中可批量出售的市场物品。',
+                'Массовая продажа Steam доступна для однотипных рыночных предметов из одного инвентаря.'
+            ],
+            'These items cannot be added to the market...': [
+                '这些物品无法上架市场…',
+                'Эти предметы нельзя выставить на рынок…'
+            ],
+            'Select at least one item to sell in bulk': [
+                '选中至少一件进行批量销售的物品',
+                'Выберите хотя бы один предмет для массовой продажи'
+            ],
+            'Bulk sell items': [
+                '批量出售物品',
+                'Массовая продажа предметов'
+            ],
+            'Sell selected items ({p0})': [
+                '出售选中的 {p0} 件物品',
+                'Продать выбранные предметы ({p0})'
+            ],
+            'Turn selected items into gems ({p0})': [
+                '将选中的 {p0} 件物品分解为宝石',
+                'Превратить выбранные предметы в самоцветы ({p0})'
+            ],
+            'Unpack selected booster packs ({p0})': [
+                '拆开选中的 {p0} 个补充包',
+                'Распаковать выбранные наборы карточек ({p0})'
+            ],
+            Sell: [
+                '出售',
+                'Продать'
+            ],
+            Buy: [
+                '求购',
+                'Купить'
+            ],
+            'Sell All Items': [
+                '出售全部物品',
+                'Продать все предметы'
+            ],
+            'Sell All Duplicate Items': [
+                '出售全部重复物品',
+                'Продать все дубликаты'
+            ],
+            'Sell Selected Items': [
+                '出售选中物品',
+                'Продать выбранные предметы'
+            ],
+            'Sell All Cards': [
+                '出售全部集换式卡牌',
+                'Продать все карточки'
+            ],
+            'Turn Selected Items Into Gems': [
+                '将选中物品分解为宝石',
+                'Превратить выбранные предметы в самоцветы'
+            ],
+            'Unpack All Booster Packs': [
+                '拆开全部补充包',
+                'Распаковать все наборы карточек'
+            ],
+            'Unpack Selected Booster Packs': [
+                '拆开选中补充包',
+                'Распаковать выбранные наборы карточек'
+            ],
+            'Turn All Duplicate Items Into Gems': [
+                '将全部重复物品分解为宝石',
+                'Превратить все дубликаты в самоцветы'
+            ],
+            'Sell All Crates': [
+                '出售全部补给箱',
+                'Продать все ящики'
+            ],
+            'Reload Inventory': [
+                '重新加载库存',
+                'Перезагрузить инвентарь'
+            ],
+            'Unknown Item': [
+                '未知物品',
+                'Неизвестный предмет'
+            ],
+            'Select all from page': [
+                '选择当前页全部物品',
+                'Выбрать всё на странице'
+            ],
+            'Calculate prices as the:': [
+                '价格计算方式：',
+                'Способ расчёта цены:'
+            ],
+            'Maximum of the average history and lowest sell listing': [
+                '历史均价与最低卖价中的较高值',
+                'Максимум из средней исторической и минимальной цены продажи'
+            ],
+            'Lowest sell listing': [
+                '最低卖价',
+                'Минимальная цена продажи'
+            ],
+            'Highest current buy order or lowest sell listing': [
+                '最高求购价或最低卖价',
+                'Максимальная цена покупки или минимальная цена продажи'
+            ],
+            'Average history only': [
+                '仅使用历史均价',
+                'Только средняя историческая цена'
+            ],
+            'Hours to use for the average history calculated price:': [
+                '计算历史均价所用的小时数：',
+                'Период для расчёта исторической средней цены (в часах):'
+            ],
+            'The value to add to the calculated price (minimum and maximum are respected):': [
+                '在计算价格上增加的金额（受最低和最高价格限制）：',
+                'Прибавка к рассчитанной цене (с учётом нижнего и верхнего пределов):'
+            ],
+            'Use the second lowest sell listing when the lowest sell listing has a low quantity:': [
+                '最低卖价的挂单数量较少时，使用第二低卖价：',
+                'Использовать вторую минимальную цену, если по минимальной цене мало предложений:'
+            ],
+            'Don\'t list market listings with prices of and below:': [
+                '不出售价格小于或等于以下金额的物品：',
+                'Не выставлять предметы по цене, равной указанной или ниже:'
+            ],
+            'Show price labels in inventory:': [
+                '在库存中显示价格标签：',
+                'Показывать цены в инвентаре:'
+            ],
+            'Show price labels in trade offers:': [
+                '在交易报价中显示价格标签：',
+                'Показывать цены в предложениях обмена:'
+            ],
+            'Show quick sell info and buttons:': [
+                '显示快速出售信息和按钮：',
+                'Показывать сведения и кнопки быстрой продажи:'
+            ],
+            'Minimum:': [
+                '最低价格：',
+                'Минимум:'
+            ],
+            'and maximum:': [
+                '最高价格：',
+                'и максимум:'
+            ],
+            'price for normal cards': [
+                '普通集换式卡牌价格',
+                'цены обычных карточек'
+            ],
+            'price for foil cards': [
+                '闪亮集换式卡牌价格',
+                'цены металлических карточек'
+            ],
+            'price for other items': [
+                '其他物品价格',
+                'цены остальных предметов'
+            ],
+            'Inventory action buttons': [
+                '库存操作按钮',
+                'Кнопки действий в инвентаре'
+            ],
+            'Bulk sell is always available when items are selected.': [
+                '选中物品后，批量出售按钮始终可用。',
+                'При выборе предметов кнопка массовой продажи всегда доступна.'
+            ],
+            'Total listed for {p0}, you will receive {p1}.': [
+                '上架总金额为 {p0}，您将收到 {p1}。',
+                'Общая сумма лотов: {p0}, вы получите {p1}.'
+            ],
+            'Total gems: {p0}.': [
+                '宝石总数：{p0}。',
+                'Всего самоцветов: {p0}.'
+            ],
+            'Number of unique items: {p0}, worth {p1}': [
+                '不同物品种类：{p0}，总价值：{p1}',
+                'Уникальных предметов: {p0}, стоимость: {p1}'
+            ],
+            'Total items: {p0}': [
+                '物品总数：{p0}',
+                'Всего предметов: {p0}'
+            ],
+            '{p0} - {p1} is not listed due to ignoring price settings.': [
+                '{p0} - {p1} 因价格限制而跳过上架。',
+                '{p0} - {p1}: пропущено из-за ограничений цены.'
+            ],
+            '{p0} - {p1} listed for {p2}, you will receive {p3}.': [
+                '{p0} - {p1} 已按 {p2} 上架，您将收到 {p3}。',
+                '{p0} - {p1}: выставлено за {p2}, вы получите {p3}.'
+            ],
+            '{p0} - {p1} retrying listing because: {p2}{p3}': [
+                '{p0} - {p1} 正在重试上架，原因：{p2}{p3}',
+                '{p0} - {p1}: повторная попытка выставления, причина: {p2}{p3}'
+            ],
+            '{p0} - {p1} not added to market{p2}': [
+                '{p0} - {p1} 未上架市场{p2}',
+                '{p0} - {p1}: не выставлено на рынок{p2}'
+            ],
+            ' because:  {p0}{p1}': [
+                '，原因：{p0}{p1}',
+                '; причина: {p0}{p1}'
+            ],
+            'Processing {p0} items': [
+                '正在处理 {p0} 件物品',
+                'Обработка предметов: {p0}'
+            ],
+            '{p0} - {p1} not turned into gems due to missing gems value.': [
+                '{p0} - {p1} 无法获取宝石价值，未进行分解。',
+                '{p0} - {p1}: не удалось определить количество самоцветов; преобразование не выполнено.'
+            ],
+            '{p0} - {p1} not turned into gems due to unknown error.': [
+                '{p0} - {p1} 因未知错误未分解为宝石。',
+                '{p0} - {p1}: преобразование в самоцветы не выполнено из-за неизвестной ошибки.'
+            ],
+            '{p0} - {p1} turned into {p2} gems.': [
+                '{p0} - {p1} 已分解为 {p2} 颗宝石。',
+                '{p0} - {p1}: получено самоцветов — {p2}.'
+            ],
+            '{p0} - {p1} not unpacked.': [
+                '{p0} - {p1} 未拆开。',
+                '{p0} - {p1}: не распаковано.'
+            ],
+            '{p0} - {p1} unpacked.': [
+                '{p0} - {p1} 已拆开。',
+                '{p0} - {p1}: распаковано.'
+            ]
+        };
+        function t(key, values = {}) {
+            const message = messages[key]?.[locale === 'zh-CN' ? 0 : 1];
+            const text = locale === 'en-US' ? key : message ?? key;
+            return text.replace(/\{(\w+)\}/g, (token, name) => Object.hasOwn(values, name) ? String(values[name]) : token);
+        }
+        return { t, locale };
+    }
+    //#endregion Localization
+
     //#region Modern market
     function initializeModernMarket() {
         const currencyCodes = 'USD GBP EUR CHF RUB PLN BRL JPY NOK IDR MYR PHP SGD THB VND KRW TRY UAH MXN CAD AUD NZD CNY INR CLP PEN COP ZAR HKD TWD SAR AED SEK ARS ILS BYN KZT KWD QAR CRC UYU BGN HRK CZK DKK HUF RON'.split(' ');
         const seed = readMarketSeed();
         const walletCurrency = seed.queries.find(q => q.queryKey[0] === 'CurrentUserWalletDetails')?.state.data?.currency_code || null;
-        const locale = 'en-US';
         const sourceLocale = document.documentElement.lang || navigator.language || locale;
+        let legacyMonths;
         let view;
         let suppressedPath;
         let scheduled;
@@ -162,7 +1063,7 @@
                 id: String(buy ? data.buy_orderid : data.listingid),
                 name: description.market_name || description.name || data.hash_name,
                 type: description.type || '',
-                game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? 'Steam Community Items' : ''),
+                game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? t('Steam Community Items') : ''),
                 description,
                 href: itemURL(description),
                 image: itemImage(description),
@@ -207,14 +1108,14 @@
                     id,
                     name: name?.textContent.trim() || '',
                     type: description.type || node.querySelector('.market_listing_game_name')?.textContent.trim() || '',
-                    game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid || new URL(href, location.origin).pathname.split('/')[3]) === 753 ? 'Steam Community Items' : ''),
+                    game: description.tags?.find(t => t.category === 'Game')?.localized_tag_name || (Number(description.appid || new URL(href, location.origin).pathname.split('/')[3]) === 753 ? t('Steam Community Items') : ''),
                     description,
                     href,
                     image: itemImage(description, node.querySelector('.market_listing_item_img')?.getAttribute('src')),
                     date: legacyDate(dates[0]?.textContent || ''),
                     dateText: dates[0]?.textContent.trim() || '—',
                     actedText: dates[1]?.textContent.trim() || '—',
-                    action: node.querySelector('.market_listing_gainorloss')?.textContent.includes('+') ? 'Purchased' : 'Sold',
+                    action: node.querySelector('.market_listing_gainorloss')?.textContent.includes('+') ? t('Purchased') : t('Sold'),
                     quantity: Number(node.querySelector('.market_listing_buyorder_qty')?.textContent.trim() || description.amount || 1),
                     price: numberFromPrice(priceText),
                     priceText: priceText.split('(')[0].trim(),
@@ -250,13 +1151,20 @@
                 day = Number(numeric[2]);
             } else {
                 day = Number(text.match(/\d+/)?.[0]);
-                const languages = [sourceLocale, locale];
-                month = Array.from({ length: 12 }, (_, i) => i).find(i => languages.some(language => {
-                    const label = new Intl.DateTimeFormat(language, { month: 'short' }).format(new Date(2020, i, 1));
-                    return text.toLocaleLowerCase().includes(label.toLocaleLowerCase());
+                const normalize = value => value.normalize('NFKC').toLowerCase().replace(/\./g, '');
+                legacyMonths ??= Array.from({ length: 12 }, (_, i) => [...new Set([sourceLocale, locale, 'en-US'])].flatMap(language => {
+                    try {
+                        const date = new Date(2020, i, 1);
+                        const standalone = new Intl.DateTimeFormat(language, { month: 'short' }).format(date);
+                        const withDay = new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric' }).formatToParts(date).find(part => part.type === 'month')?.value;
+                        return [standalone, withDay].filter(Boolean).flatMap(label => [normalize(label), normalize(label).slice(0, 3)]);
+                    } catch {
+                        return [];
+                    }
                 }));
+                month = legacyMonths.findIndex(labels => labels.some(label => normalize(text).includes(label)));
             }
-            if (month == null || !day) {
+            if (month == null || month < 0 || !day) {
                 return 0;
             }
             const date = new Date(now.getFullYear(), month, day);
@@ -273,14 +1181,14 @@
                 signal: AbortSignal.any([state.controller.signal, ...(options.signal ? [options.signal] : []), AbortSignal.timeout(30000)])
             });
             if (!response.ok) {
-                const error = new Error(response.status === 429 ? 'Too many Steam requests. Please try again later (429).' : `Steam request failed (${response.status}).`);
+                const error = new Error(response.status === 429 ? t('Too many Steam requests. Please try again later (429).') : t('Steam request failed ({p0}).', { p0: response.status }));
                 error.status = response.status;
                 throw error;
             }
             try {
                 return await response.json();
             } catch {
-                throw new Error('Steam returned a non-JSON response. Please check that you are still signed in.');
+                throw new Error(t('Steam returned a non-JSON response. Please check that you are still signed in.'));
             }
         }
 
@@ -288,7 +1196,7 @@
             const params = new URLSearchParams({ q: name, qp: JSON.stringify(args) });
             const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' }, signal });
             if (result.data?.eResult !== 1) {
-                throw new Error(`Steam ${name} failed (${result.data?.eResult ?? 'no data'}).`);
+                throw new Error(t('Steam {p0} failed ({p1}).', { p0: name, p1: result.data?.eResult ?? t('no data') }));
             }
             return result.data;
         }
@@ -297,7 +1205,7 @@
             state.loading = true;
             state.notice = '';
             renderOrders(state);
-            state.status.textContent = 'Loading items…';
+            state.status.textContent = t('Loading items…');
             try {
                 const pages = fresh ? [] : seedRows(state.kind);
                 const rows = new Map(pages.flatMap(p => p[state.kind === 'buyorders' ? 'buy_orders' : 'listings'] || []).map(e => {
@@ -330,7 +1238,7 @@
                         });
                         more = data.bMore;
                         if (more && (!entries.length || rows.size === previousSize)) {
-                            throw new Error('Steam returned a duplicate or empty page. Please refresh and try again.');
+                            throw new Error(t('Steam returned a duplicate or empty page. Please refresh and try again.'));
                         }
                         offset += entries.length;
                         publish();
@@ -351,7 +1259,7 @@
                             return;
                         }
                         if (!data.success) {
-                            throw new Error('Steam did not return valid listings. Please check that you are signed in.');
+                            throw new Error(t('Steam did not return valid listings. Please check that you are signed in.'));
                         }
                         const batch = parseLegacy(data, state.kind);
                         const before = rows.size;
@@ -377,13 +1285,13 @@
                         offset += batch.length;
                         more = offset < Number(data.total_count);
                         if (more && rows.size === before) {
-                            throw new Error('Steam could not return the next batch of listings. Please refresh and try again.');
+                            throw new Error(t('Steam could not return the next batch of listings. Please refresh and try again.'));
                         }
                         if (more) {
                             await pause(1000);
                         }
                     } while (more);
-                    state.notice = 'Using the Steam compatibility endpoint. Unavailable typical prices are shown as —.';
+                    state.notice = t('Using the Steam compatibility endpoint. Unavailable typical prices are shown as —.');
                 }
                 if (state.controller.signal.aborted) {
                     return;
@@ -450,7 +1358,7 @@
                 checkbox.type = 'checkbox';
                 checkbox.checked = state.selected.has(row.id);
                 checkbox.disabled = state.busy;
-                checkbox.setAttribute('aria-label', `Select ${row.name}`);
+                checkbox.setAttribute('aria-label', t('Select {p0}', { p0: row.name }));
                 checkbox.addEventListener('change', () => {
                     if (checkbox.checked) {
                         state.selected.add(row.id);
@@ -468,20 +1376,20 @@
                 }
                 tr.append(price, element('td', row.typicalText));
                 const actions = element('td');
-                const action = button(state.kind === 'buyorders' ? 'Cancel' : 'Modify', () => state.kind === 'buyorders' ? removeOrders(state, [row]) : modifyOrder(state, row), actions);
+                const action = button(state.kind === 'buyorders' ? t('Cancel') : t('Modify'), () => state.kind === 'buyorders' ? removeOrders(state, [row]) : modifyOrder(state, row), actions);
                 action.disabled = state.busy || state.loading;
                 tr.append(actions);
                 state.body.append(tr);
             }
             if (!rows.length) {
-                const cell = element('td', state.loading ? 'Loading…' : 'No matching items.');
+                const cell = element('td', state.loading ? t('Loading…') : t('No matching items.'));
                 cell.colSpan = 6;
                 const tr = element('tr');
                 tr.append(cell);
                 state.body.append(tr);
             }
-            state.count.textContent = `Showing ${rows.length} / ${state.rows.length} items · ${state.selected.size} selected`;
-            state.status.textContent = state.loading ? `Loading items… ${state.rows.length} loaded.` : state.notice || '';
+            state.count.textContent = t('Showing {p0} / {p1} items · {p2} selected', { p0: rows.length, p1: state.rows.length, p2: state.selected.size });
+            state.status.textContent = state.loading ? t('Loading items… {p0} loaded.', { p0: state.rows.length }) : state.notice || '';
             updateSelection(state);
         }
 
@@ -526,7 +1434,7 @@
             if (state.reprice) {
                 state.reprice.disabled = state.loading || state.busy || !state.selected.size;
             }
-            state.count.textContent = `Showing ${rows.length} / ${state.rows.length} items · ${state.selected.size} selected`;
+            state.count.textContent = t('Showing {p0} / {p1} items · {p2} selected', { p0: rows.length, p1: state.rows.length, p2: state.selected.size });
             renderTotals(state, rows);
         }
 
@@ -544,21 +1452,21 @@
                 }
                 return [...groups].map(([currency, value]) => state.kind === 'buyorders'
                     ? money(value.buyer, currency)
-                    : `${money(value.buyer, currency)} buyer pays / ${value.missing ? 'unavailable' : money(value.seller, currency)} you receive`).join(' · ') || '—';
+                    : t('{p0} buyer pays / {p1} you receive', { p0: money(value.buyer, currency), p1: value.missing ? t('unavailable') : money(value.seller, currency) })).join(' · ') || '—';
             };
-            state.totals.replaceChildren(element('div', `${state.kind === 'buyorders' ? 'Buy order commitment' : 'Sell listing total'}${state.loading ? ' (loaded so far)' : ''}: ${total(state.rows)}`));
+            state.totals.replaceChildren(element('div', `${state.kind === 'buyorders' ? t('Buy order commitment') : t('Sell listing total')}${state.loading ? t(' (loaded so far)') : ''}: ${total(state.rows)}`));
             if (visible.length !== state.rows.length) {
-                state.totals.append(element('div', `Filtered: ${total(visible)}`));
+                state.totals.append(element('div', t('Filtered: {p0}', { p0: total(visible) })));
             }
             if (state.selected.size) {
-                state.totals.append(element('div', `Selected: ${total(state.rows.filter(row => state.selected.has(row.id)))}`));
+                state.totals.append(element('div', t('Selected: {p0}', { p0: total(state.rows.filter(row => state.selected.has(row.id))) })));
             }
         }
 
         async function cancelOrder(state, row) {
             const sessionid = document.cookie.split('; ').find(c => c.startsWith('sessionid='))?.slice(10);
             if (!sessionid) {
-                throw new Error('Steam session not found. Please sign in again and retry.');
+                throw new Error(t('Steam session not found. Please sign in again and retry.'));
             }
             const buy = state.kind === 'buyorders';
             const body = new URLSearchParams({ sessionid, ...(buy ? { buy_orderid: row.id } : {}) });
@@ -566,7 +1474,7 @@
             // The legacy sell-removal endpoint uses [] for a successful cancellation.
             const accepted = !buy && Array.isArray(result) && result.length === 0 || result?.success === true || result?.success === 1;
             if (!accepted) {
-                throw new Error(result?.message || `Steam did not confirm cancellation (${result?.success ?? 'no result'}).`);
+                throw new Error(result?.message || t('Steam did not confirm cancellation ({p0}).', { p0: result?.success ?? t('no result') }));
             }
         }
 
@@ -576,7 +1484,9 @@
             }
             const visible = new Set(matches(state).map(row => row.id));
             const hidden = rows.filter(row => !visible.has(row.id)).length;
-            if (!unsafeWindow.confirm(`${state.kind === 'buyorders' ? 'Cancel' : 'Remove'} these ${rows.length} ${state.kind === 'buyorders' ? 'buy orders' : 'listings'}?${hidden ? `\n${hidden} selected ${hidden === 1 ? 'item is' : 'items are'} hidden by the current filter.` : ''}\n${rows.slice(0, 5).map(row => `${row.name} · ${row.priceText}`).join('\n')}`)) {
+            const prompt = state.kind === 'buyorders' ? 'Cancel these {p0} buy orders?' : 'Remove these {p0} listings?';
+            const hiddenNotice = hidden ? `\n${t('Hidden selected items: {p0}.', { p0: hidden })}` : '';
+            if (!unsafeWindow.confirm(`${t(prompt, { p0: rows.length })}${hiddenNotice}\n${rows.slice(0, 5).map(row => `${row.name} · ${row.priceText}`).join('\n')}`)) {
                 return;
             }
             state.busy = true;
@@ -587,7 +1497,7 @@
                     if (state.controller.signal.aborted) {
                         return;
                     }
-                    state.status.textContent = `Cancelling ${completed + 1} / ${rows.length}…`;
+                    state.status.textContent = t('Cancelling {p0} / {p1}…', { p0: completed + 1, p1: rows.length });
                     await cancelOrder(state, row);
                     completed++;
                     state.rows = state.rows.filter(r => r.id !== row.id);
@@ -597,10 +1507,10 @@
                         await pause(1000);
                     }
                 }
-                state.notice = `Successfully cancelled ${completed} items.`;
+                state.notice = t('Successfully cancelled {p0} items.', { p0: completed });
             } catch (error) {
                 // A failed/ambiguous POST is never retried automatically.
-                state.notice = `Cancelled ${completed} items; operation stopped: ${error.message} Refresh to verify the results before trying again.`;
+                state.notice = t('Cancelled {p0} items; operation stopped: {p1} Refresh to verify the results before trying again.', { p0: completed, p1: error.message });
             } finally {
                 state.busy = false;
                 if (!state.controller.signal.aborted) {
@@ -618,7 +1528,7 @@
             });
             const data = result.data;
             if (data?.eResult !== 1 || data.eUpdateResult !== 1) {
-                throw new Error(`Steam did not confirm the price change (${data?.eUpdateResult ?? data?.eResult ?? 'no result'}).`);
+                throw new Error(t('Steam did not confirm the price change ({p0}).', { p0: data?.eUpdateResult ?? data?.eResult ?? t('no result') }));
             }
             return data;
         }
@@ -628,7 +1538,7 @@
             const result = await jsonRequest(`/market/orderbook?${params}`, state, { signal });
             const book = result.data?.success ? result.data.data : null;
             if (!book || !Array.isArray(book.rgCompactSellOrders) || !Array.isArray(book.rgCompactBuyOrders)) {
-                throw new Error('Steam did not return a complete order book.');
+                throw new Error(t('Steam did not return a complete order book.'));
             }
             return book;
         }
@@ -673,26 +1583,26 @@
             renderOrders(state);
             const controller = new AbortController();
             const dialog = element('dialog', null, 'see-market-dialog see-reprice-dialog');
-            dialog.append(element('h3', 'Reprice selected listings'));
-            dialog.append(element('p', 'Use the current lowest sell price per item. Asking prices include Steam and publisher fees; rounding may leave the buyer price slightly below the target. All selected items, including filtered-out items, appear here.'));
-            const message = element('p', 'Loading fresh prices and fee rules…', 'see-status');
+            dialog.append(element('h3', t('Reprice selected listings')));
+            dialog.append(element('p', t('Use the current lowest sell price per item. Asking prices include Steam and publisher fees; rounding may leave the buyer price slightly below the target. All selected items, including filtered-out items, appear here.')));
+            const message = element('p', t('Loading fresh prices and fee rules…'), 'see-status');
             dialog.append(message);
             const preview = makeTable({ host: dialog });
             const header = preview.createTHead().insertRow();
-            ['Item', 'Current ask', 'Lowest ask', 'New ask', 'You receive', 'Status'].forEach(text => header.append(element('th', text)));
+            [t('Item'), t('Current ask'), t('Lowest ask'), t('New ask'), t('You receive'), t('Status')].forEach(text => header.append(element('th', text)));
             const body = preview.createTBody();
             const controls = element('div', null, 'see-toolbar');
             dialog.append(controls);
             let submitting = false;
             let preparedAt;
             const prepared = [];
-            const save = button('Apply price changes', async () => {
+            const save = button(t('Apply price changes'), async () => {
                 if (Date.now() - preparedAt > 60000) {
                     save.disabled = true;
-                    message.textContent = 'This preview is over one minute old. Close it and prepare a fresh preview.';
+                    message.textContent = t('This preview is over one minute old. Close it and prepare a fresh preview.');
                     return;
                 }
-                if (!unsafeWindow.confirm(`Directly update ${prepared.length} listing prices shown in this preview?`)) {
+                if (!unsafeWindow.confirm(t('Directly update {p0} listing prices shown in this preview?', { p0: prepared.length }))) {
                     return;
                 }
                 submitting = true;
@@ -702,33 +1612,33 @@
                 let confirmations = 0;
                 try {
                     for (const item of prepared) {
-                        item.status.textContent = 'Submitting…';
+                        item.status.textContent = t('Submitting…');
                         const result = await updateListingPrice(state, item.row, item.quote.seller);
                         completed++;
                         if (result.bRequiresConfirmation) {
                             confirmations++;
                             item.row.pendingConfirmation = true;
-                            item.status.textContent = 'Confirm in Steam app / email';
+                            item.status.textContent = t('Confirm in Steam app / email');
                         } else {
                             const quote = listingQuote(Number(result.nPrice ?? item.quote.seller), item.fees, item.wallet);
                             Object.assign(item.row, quote, { priceText: money(quote.price, item.row.currency), sellerText: money(quote.seller, item.row.currency) });
-                            item.status.textContent = 'Updated';
+                            item.status.textContent = t('Updated');
                         }
                         renderOrders(state);
                         if (completed < prepared.length) {
                             await pause(1000, state.controller.signal);
                         }
                     }
-                    message.textContent = `Updated ${completed} listings. ${confirmations} require Steam confirmation. Refresh to verify final prices.`;
+                    message.textContent = t('Updated {p0} listings. {p1} require Steam confirmation. Refresh to verify final prices.', { p0: completed, p1: confirmations });
                 } catch (error) {
-                    message.textContent = `Updated ${completed} listings; stopped: ${error.message} Refresh to verify results before trying again.`;
+                    message.textContent = t('Updated {p0} listings; stopped: {p1} Refresh to verify results before trying again.', { p0: completed, p1: error.message });
                 } finally {
                     submitting = false;
                     close.disabled = false;
                 }
             }, controls);
             save.disabled = true;
-            const close = button('Close', () => dialog.close(), controls);
+            const close = button(t('Close'), () => dialog.close(), controls);
             dialog.addEventListener('cancel', event => {
                 if (submitting) {
                     event.preventDefault();
@@ -747,7 +1657,7 @@
             try {
                 const wallet = (await jsonRequest('/market/userbillinginfo', state, { signal: controller.signal })).wallet_info;
                 if (!wallet || !Number.isSafeInteger(Number(wallet.wallet_market_minimum)) || Number(wallet.wallet_market_minimum) < 1 || !Number.isSafeInteger(Number(wallet.wallet_currency_increment)) || Number(wallet.wallet_currency_increment) < 1) {
-                    throw new Error('Steam wallet rounding rules are unavailable.');
+                    throw new Error(t('Steam wallet rounding rules are unavailable.'));
                 }
                 const cache = new Map();
                 const feeCache = new Map();
@@ -761,13 +1671,13 @@
                     const appid = Number(row.description.appid);
                     const name = row.description.market_hash_name;
                     if (!currency || !appid || !name || Number(wallet.wallet_currency) !== currency) {
-                        throw new Error('Cannot determine the item identity or matching wallet currency.');
+                        throw new Error(t('Cannot determine the item identity or matching wallet currency.'));
                     }
                     const key = JSON.stringify([appid, name, currency]);
                     if (!cache.has(key)) {
                         const book = await loadOrderBook(state, appid, name, controller.signal);
                         if (Number(book.eCurrency) !== currency) {
-                            throw new Error('Order book currency does not match the listing.');
+                            throw new Error(t('Order book currency does not match the listing.'));
                         }
                         const feeKey = JSON.stringify([appid, currency]);
                         if (!feeCache.has(feeKey)) {
@@ -777,25 +1687,25 @@
                         }
                         const fees = feeCache.get(feeKey);
                         if (![fees?.steam_fee, fees?.publisher_fee].every(fee => fee && Number.isFinite(Number(fee.fee_rate ?? 0)) && Number(fee.fee_rate ?? 0) >= 0 && (fee.fee_cap == null || Number.isFinite(Number(fee.fee_cap))))) {
-                            throw new Error('Steam fee rules are unavailable.');
+                            throw new Error(t('Steam fee rules are unavailable.'));
                         }
                         cache.set(key, { ask: Number(book.amtMinSellOrder), fees });
                         await pause(1000, controller.signal);
                     }
                     const { ask, fees } = cache.get(key);
                     const quote = Number.isSafeInteger(ask) && ask > 0 ? quoteAtAsk(ask, fees, wallet) : null;
-                    const status = element('td', row.pendingConfirmation ? 'Pending confirmation; skipped' : !quote ? 'No valid lowest ask; skipped' : quote.seller === row.seller ? 'Unchanged; skipped' : 'Ready');
+                    const status = element('td', row.pendingConfirmation ? t('Pending confirmation; skipped') : !quote ? t('No valid lowest ask; skipped') : quote.seller === row.seller ? t('Unchanged; skipped') : t('Ready'));
                     tr.append(element('td', ask > 0 ? money(ask, currency) : '—'), element('td', quote ? money(quote.price, currency) : '—'), element('td', quote ? money(quote.seller, currency) : '—'), status);
                     if (quote && !row.pendingConfirmation && quote.seller !== row.seller) {
                         prepared.push({ row, quote, fees, wallet, status });
                     }
                 }
                 preparedAt = Date.now();
-                message.textContent = `${prepared.length} / ${rows.length} listings ready. Review the prices before applying. Prices are a snapshot taken while preparing this preview.`;
+                message.textContent = t('{p0} / {p1} listings ready. Review the prices before applying. Prices are a snapshot taken while preparing this preview.', { p0: prepared.length, p1: rows.length });
                 save.disabled = !prepared.length;
             } catch (error) {
                 if (!controller.signal.aborted && !state.controller.signal.aborted) {
-                    message.textContent = `Could not prepare prices: ${error.message}`;
+                    message.textContent = t('Could not prepare prices: {p0}', { p0: error.message });
                 }
             }
         }
@@ -805,13 +1715,13 @@
                 return;
             }
             if (!row.currency) {
-                state.status.textContent = 'Cannot determine the listing currency. Please refresh the page or modify it in the original Steam list.';
+                state.status.textContent = t('Cannot determine the listing currency. Please refresh the page or modify it in the original Steam list.');
                 return;
             }
             const dialog = element('dialog', null, 'see-market-dialog');
             state.host.append(dialog);
-            dialog.append(element('h3', 'Modify listing'), element('p', row.name), element('p', `Asking price: ${row.priceText} · Typical price: ${row.typicalText}`));
-            const label = element('label', 'You receive per item (after fees):');
+            dialog.append(element('h3', t('Modify listing')), element('p', row.name), element('p', t('Asking price: {p0} · Typical price: {p1}', { p0: row.priceText, p1: row.typicalText })));
+            const label = element('label', t('You receive per item (after fees):'));
             const input = element('input');
             input.type = 'number';
             input.min = '0.01';
@@ -819,18 +1729,18 @@
             input.value = ((row.seller ?? numberFromPrice(row.sellerText)) / 100).toFixed(2);
             label.append(input);
             dialog.append(label);
-            const message = element('p', 'Lowering the price may require confirmation in the Steam mobile app or by email.', 'see-status');
+            const message = element('p', t('Lowering the price may require confirmation in the Steam mobile app or by email.'), 'see-status');
             dialog.append(message);
             const controls = element('div', null, 'see-toolbar');
             dialog.append(controls);
-            const save = button('Save price', async () => {
+            const save = button(t('Save price'), async () => {
                 const value = Number(input.value);
                 const cents = Math.round(value * 100);
                 if (!input.value || !Number.isFinite(value) || cents < 1 || Math.abs(value * 100 - cents) > 0.00001) {
-                    message.textContent = 'Enter a price greater than zero with at most two decimal places.';
+                    message.textContent = t('Enter a price greater than zero with at most two decimal places.');
                     return;
                 }
-                if (!unsafeWindow.confirm(`Change the amount you receive per item for ${row.name} to ${money(cents, row.currency)}?`)) {
+                if (!unsafeWindow.confirm(t('Change the amount you receive per item for {p0} to {p1}?', { p0: row.name, p1: money(cents, row.currency) }))) {
                     return;
                 }
                 save.disabled = true;
@@ -838,19 +1748,19 @@
                 close.disabled = true;
                 try {
                     const data = await updateListingPrice(state, row, cents);
-                    message.textContent = data.bRequiresConfirmation ? 'Submitted. Confirm in the Steam mobile app or by email, then refresh the list.' : 'Price updated. Refresh the list to see the final Steam price.';
+                    message.textContent = data.bRequiresConfirmation ? t('Submitted. Confirm in the Steam mobile app or by email, then refresh the list.') : t('Price updated. Refresh the list to see the final Steam price.');
                 } catch (error) {
-                    message.textContent = `${error.message} Refresh to verify the result before trying again.`;
+                    message.textContent = t('{p0} Refresh to verify the result before trying again.', { p0: error.message });
                 } finally {
                     close.disabled = false;
                     remove.disabled = false;
                 }
             }, controls);
-            const remove = button('Remove this item', async () => {
+            const remove = button(t('Remove this item'), async () => {
                 dialog.close();
                 await removeOrders(state, [row]);
             }, controls);
-            const close = button('Close', () => dialog.close(), controls);
+            const close = button(t('Close'), () => dialog.close(), controls);
             dialog.addEventListener('close', () => dialog.remove(), { once: true });
             dialog.showModal();
         }
@@ -859,13 +1769,13 @@
             const toolbar = element('div', null, 'see-toolbar');
             state.search = element('input');
             state.search.type = 'search';
-            state.search.placeholder = 'Search names, games, types, prices…';
-            state.search.setAttribute('aria-label', 'Search all item information');
+            state.search.placeholder = t('Search names, games, types, prices…');
+            state.search.setAttribute('aria-label', t('Search all item information'));
             state.search.addEventListener('input', () => renderOrders(state));
-            state.remove = button(state.kind === 'buyorders' ? 'Cancel selected' : 'Remove selected', () => removeOrders(state, state.rows.filter(row => state.selected.has(row.id))), toolbar);
+            state.remove = button(state.kind === 'buyorders' ? t('Cancel selected') : t('Remove selected'), () => removeOrders(state, state.rows.filter(row => state.selected.has(row.id))), toolbar);
             if (state.kind !== 'buyorders') {
-                state.reprice = button('重新上架选中物品', () => repriceOrders(state), toolbar);
-                state.reprice.title = 'Reprice selected listings to the current lowest sell price';
+                state.reprice = button(t('Reprice selected'), () => repriceOrders(state), toolbar);
+                state.reprice.title = t('Reprice selected listings to the current lowest sell price');
             }
             const select = checked => {
                 if (checked) {
@@ -875,9 +1785,9 @@
                 }
                 renderOrders(state);
             };
-            state.select = button('Select All', () => select(true), toolbar);
-            state.deselect = button('Deselect All', () => select(false), toolbar);
-            state.refresh = button('Refresh', () => loadOrders(state, true), toolbar);
+            state.select = button(t('Select All'), () => select(true), toolbar);
+            state.deselect = button(t('Deselect All'), () => select(false), toolbar);
+            state.refresh = button(t('Refresh'), () => loadOrders(state, true), toolbar);
             toolbar.append(state.search);
             state.count = element('p', '', 'see-status');
             state.totals = element('div', '', 'see-totals');
@@ -888,7 +1798,7 @@
             const selection = element('th');
             state.all = element('input');
             state.all.type = 'checkbox';
-            state.all.setAttribute('aria-label', 'Select all matching items');
+            state.all.setAttribute('aria-label', t('Select all matching items'));
             state.all.addEventListener('change', () => {
                 const checked = state.all.checked;
                 matches(state).forEach(row => checked ? state.selected.add(row.id) : state.selected.delete(row.id));
@@ -896,7 +1806,7 @@
             });
             selection.append(state.all);
             head.append(selection);
-            const columns = [['name', 'Name'], [state.kind === 'buyorders' ? 'quantity' : 'date', state.kind === 'buyorders' ? 'Quantity' : 'Listed on'], ['price', state.kind === 'buyorders' ? 'Bid price' : 'Asking price'], ['typical', 'Typical price']];
+            const columns = [['name', t('Name')], [state.kind === 'buyorders' ? 'quantity' : 'date', state.kind === 'buyorders' ? t('Quantity') : t('Listed on')], ['price', state.kind === 'buyorders' ? t('Bid price') : t('Asking price')], ['typical', t('Typical price')]];
             for (const [key, text] of columns) {
                 const th = element('th');
                 th.scope = 'col';
@@ -907,10 +1817,10 @@
                     th.setAttribute('aria-sort', state.sort.direction === 1 ? 'ascending' : 'descending');
                     renderOrders(state);
                 }, th);
-                sort.title = `Sort by ${text.toLowerCase()} in ascending or descending order`;
+                sort.title = t('Sort by {p0} in ascending or descending order', { p0: text.toLowerCase() });
                 head.append(th);
             }
-            head.append(element('th', 'Action'));
+            head.append(element('th', t('Action')));
             state.body = table.createTBody();
             loadOrders(state);
         }
@@ -932,7 +1842,7 @@
             state.host.append(state.pager);
             const table = makeTable(state);
             const head = table.createTHead().insertRow();
-            ['Name', 'Listed on', 'Acted on', 'Price', 'Action'].forEach(text => head.append(element('th', text)));
+            [t('Name'), t('Listed on'), t('Acted on'), t('Price'), t('Action')].forEach(text => head.append(element('th', text)));
             state.body = table.createTBody();
             loadHistory(state, 1);
         }
@@ -948,20 +1858,20 @@
                 form.append(label);
                 return input;
             };
-            state.historyName = field('Item name', 'search', 'Search history by item name');
-            state.historyName.placeholder = 'Enter all or part of an item name';
-            state.historyFrom = field('From date', 'date', 'From date');
-            state.historyTo = field('To date', 'date', 'To date');
-            state.historySearchButton = button('Start search', () => {
+            state.historyName = field(t('Item name'), 'search', t('Search history by item name'));
+            state.historyName.placeholder = t('Enter all or part of an item name');
+            state.historyFrom = field(t('From date'), 'date', t('From date'));
+            state.historyTo = field(t('To date'), 'date', t('To date'));
+            state.historySearchButton = button(t('Start search'), () => {
                 if (state.historySearchRun) {
                     state.historySearchButton.disabled = true;
-                    state.status.textContent = 'Stopping search…';
+                    state.status.textContent = t('Stopping search…');
                     state.historySearchRun.controller.abort();
                 } else {
                     searchHistory(state);
                 }
             }, form);
-            state.historyClear = button('Clear search', () => {
+            state.historyClear = button(t('Clear search'), () => {
                 state.historySearchRun?.controller.abort();
                 state.historySearchRun = null;
                 state.searchResults = null;
@@ -974,12 +1884,12 @@
                 event.preventDefault();
                 state.historySearchButton.click();
             });
-            state.host.append(form, element('p', 'Search by item name, transaction date, or both. Dates use your local time; the end date is included.', 'see-status'));
+            state.host.append(form, element('p', t('Search by item name, transaction date, or both. Dates use your local time; the end date is included.'), 'see-status'));
         }
 
         function syncHistorySearch(state) {
             const active = Boolean(state.historySearchRun);
-            state.historySearchButton.textContent = active ? 'Stop search' : 'Start search';
+            state.historySearchButton.textContent = active ? t('Stop search') : t('Start search');
             state.historySearchButton.disabled = state.loading;
             state.historyClear.disabled = state.loading || (!active && state.searchResults == null);
             [state.historyName, state.historyFrom, state.historyTo].forEach(input => {
@@ -990,12 +1900,12 @@
         async function legacyHistoryBatch(state, start, count, signal) {
             const data = await jsonRequest(`/market/myhistory/render/?query=&start=${start}&count=${count}`, state, { signal });
             if (!data.success || !Number.isFinite(Number(data.total_count)) || Number(data.start) !== start) {
-                throw new Error('Steam did not return valid market history. Please check that you are signed in.');
+                throw new Error(t('Steam did not return valid market history. Please check that you are signed in.'));
             }
             const rows = parseLegacy(data, 'history');
             const total = Number(data.total_count);
             if (!rows.length && start < total) {
-                throw new Error('Steam returned an empty page. Please try again later.');
+                throw new Error(t('Steam returned an empty page. Please try again later.'));
             }
             return { rows, total };
         }
@@ -1010,14 +1920,14 @@
             return {
                 name: description.market_name || description.name || '',
                 type: description.type || '',
-                game: description.tags?.find(tag => tag.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? 'Steam Community Items' : ''),
+                game: description.tags?.find(tag => tag.category === 'Game')?.localized_tag_name || (Number(description.appid) === 753 ? t('Steam Community Items') : ''),
                 description,
                 href: itemURL(description),
                 image: itemImage(description),
                 dateText: dateText(Number(event.time_listing)),
                 actedText: dateText(Number(event.time_event)),
                 priceText: money(price, bought ? purchase.currencyid : purchase.received_currencyid),
-                action: bought ? 'Purchased' : 'Sold'
+                action: bought ? t('Purchased') : t('Sold')
             };
         }
 
@@ -1029,7 +1939,7 @@
                 state.body.append(tr);
             });
             if (!rows.length) {
-                const cell = element('td', state.searchResults == null ? 'No market history.' : 'No matching records found.');
+                const cell = element('td', state.searchResults == null ? t('No market history.') : t('No matching records found.'));
                 cell.colSpan = 5;
                 state.body.insertRow().append(cell);
             }
@@ -1058,7 +1968,7 @@
                 const data = await queryAction('QueryMyHistory', [start, start === 0 ? 50 : 25], state, run.controller.signal);
                 const events = data.rgEvents;
                 if (!Array.isArray(events) || !events.length || events.some(event => !Number.isFinite(Number(event.time_event)) || Number(event.time_event) <= 0)) {
-                    throw new Error('Steam did not return complete transaction dates. The date search cannot continue.');
+                    throw new Error(t('Steam did not return complete transaction dates. The date search cannot continue.'));
                 }
                 for (let i = 0; i < events.length; i += 25) {
                     run.pages.set(page + i / 25, events.slice(i, i + 25));
@@ -1092,7 +2002,7 @@
             const from = state.historyFrom.value;
             const to = state.historyTo.value;
             if (!name && !from && !to) {
-                state.status.textContent = 'Enter an item name, a start date or an end date.';
+                state.status.textContent = t('Enter an item name, a start date or an end date.');
                 return;
             }
             const since = from ? new Date(`${from}T00:00:00`).getTime() : null;
@@ -1100,7 +2010,7 @@
             endDate?.setDate(endDate.getDate() + 1);
             const until = endDate?.getTime() ?? null;
             if (since != null && !Number.isFinite(since) || until != null && !Number.isFinite(until) || since != null && until != null && since >= until) {
-                state.status.textContent = 'Choose a valid date range with the start date on or before the end date.';
+                state.status.textContent = t('Choose a valid date range with the start date on or before the end date.');
                 return;
             }
             if (state.searchResults == null) {
@@ -1111,7 +2021,7 @@
             state.searchResults = [];
             state.page = 1;
             showHistoryResults(state);
-            state.status.textContent = 'Starting search…';
+            state.status.textContent = t('Starting search…');
             try {
                 await paceHistorySearch(run);
                 const { total } = await legacyHistoryBatch(state, 0, 1, run.controller.signal);
@@ -1121,7 +2031,7 @@
                         return;
                     }
                     showHistoryResults(state);
-                    state.status.textContent = `Searching… ${run.scanned.toLocaleString(locale)} / ${run.target.toLocaleString(locale)} records checked · ${state.searchResults.length.toLocaleString(locale)} matches.`;
+                    state.status.textContent = t('Searching… {p0} / {p1} records checked · {p2} matches.', { p0: run.scanned.toLocaleString(locale), p1: run.target.toLocaleString(locale), p2: state.searchResults.length.toLocaleString(locale) });
                 };
                 if (since == null && until == null) {
                     run.target = total;
@@ -1136,7 +2046,7 @@
                         update();
                     }
                 } else if (total) {
-                    state.status.textContent = 'Locating records in the selected date range…';
+                    state.status.textContent = t('Locating records in the selected date range…');
                     const totalPages = Math.ceil(total / 25);
                     const first = until == null ? 0 : await historyDateBound(state, run, totalPages, until, true);
                     const last = since == null ? totalPages : await historyDateBound(state, run, totalPages, since, false);
@@ -1158,12 +2068,12 @@
                         update();
                     }
                 }
-                state.status.textContent = `Search complete. Checked ${run.scanned.toLocaleString(locale)} records; found ${state.searchResults.length.toLocaleString(locale)} matches.`;
+                state.status.textContent = t('Search complete. Checked {p0} records; found {p1} matches.', { p0: run.scanned.toLocaleString(locale), p1: state.searchResults.length.toLocaleString(locale) });
             } catch (error) {
                 if (!state.controller.signal.aborted && state.historySearchRun === run) {
                     state.status.textContent = run.controller.signal.aborted
-                        ? `Search stopped. Checked ${run.scanned.toLocaleString(locale)} records; found ${state.searchResults.length.toLocaleString(locale)} matches.`
-                        : `Search stopped: ${error.message} Found ${state.searchResults.length.toLocaleString(locale)} matches. You can start a new search.`;
+                        ? t('Search stopped. Checked {p0} records; found {p1} matches.', { p0: run.scanned.toLocaleString(locale), p1: state.searchResults.length.toLocaleString(locale) })
+                        : t('Search stopped: {p0} Found {p1} matches. You can start a new search.', { p0: error.message, p1: state.searchResults.length.toLocaleString(locale) });
                 }
             } finally {
                 if (state.historySearchRun === run) {
@@ -1194,7 +2104,7 @@
                     node.setAttribute('aria-current', 'page');
                 }
             };
-            navigate('Previous', state.page - 1, state.page <= 1);
+            navigate(t('Previous'), state.page - 1, state.page <= 1);
             const numbers = [...new Set([1, ...Array.from({ length: 5 }, (_, i) => state.page + i - 2), totalPages])].filter(p => p > 0 && p <= totalPages).sort((a, b) => a - b);
             numbers.forEach((page, i) => {
                 if (i && page - numbers[i - 1] > 1) {
@@ -1202,7 +2112,7 @@
                 }
                 navigate(String(page), page, page === state.page);
             });
-            navigate('Next', state.page + 1, state.page >= totalPages);
+            navigate(t('Next'), state.page + 1, state.page >= totalPages);
             const jump = element('input');
             jump.type = 'number';
             jump.min = '1';
@@ -1210,9 +2120,9 @@
             jump.step = '1';
             jump.value = String(state.page);
             jump.disabled = state.loading;
-            jump.setAttribute('aria-label', 'Page number');
+            jump.setAttribute('aria-label', t('Page number'));
             state.pager.append(jump);
-            const go = element('button', 'Go');
+            const go = element('button', t('Go'));
             go.type = 'submit';
             go.disabled = state.loading;
             state.pager.append(go);
@@ -1229,9 +2139,9 @@
                 }
             };
             const size = element('select');
-            size.setAttribute('aria-label', 'Rows per page');
+            size.setAttribute('aria-label', t('Rows per page'));
             [25, 50, 100, 500].forEach(value => {
-                const option = element('option', `${value} per page`);
+                const option = element('option', t('{p0} per page', { p0: value }));
                 option.value = String(value);
                 size.append(option);
             });
@@ -1257,7 +2167,7 @@
                 return;
             }
             state.loading = true;
-            state.status.textContent = `Loading page ${page}…`;
+            state.status.textContent = t('Loading page {p0}…', { p0: page });
             state.body.style.opacity = '0.5';
             renderPager(state);
             const start = (page - 1) * pageSize;
@@ -1269,7 +2179,7 @@
                     const batch = await legacyHistoryBatch(state, offset, pageSize - rows.length);
                     total = batch.total;
                     rows = rows.concat(batch.rows);
-                    state.status.textContent = `Loading page ${page}: ${rows.length} records…`;
+                    state.status.textContent = t('Loading page {p0}: {p1} records…', { p0: page, p1: rows.length });
                     if (rows.length < pageSize && start + rows.length < total) {
                         // If Steam clamps a request to 25/100, fill this display page without skipping records.
                         await pause(1000);
@@ -1286,7 +2196,7 @@
                 state.page = page;
                 state.pageSize = pageSize;
                 historyRows(state, rows);
-                state.status.textContent = `${total ? start + 1 : 0}–${start + rows.length} / ${total.toLocaleString(locale)} records. Dates are shown as returned by Steam and may omit the year.`;
+                state.status.textContent = t('{p0}–{p1} / {p2} records. Dates are shown as returned by Steam and may omit the year.', { p0: total ? start + 1 : 0, p1: start + rows.length, p2: total.toLocaleString(locale) });
             } catch (error) {
                 showError(state, error, () => loadHistory(state, page, pageSize));
             } finally {
@@ -1306,8 +2216,8 @@
             if (state.kind !== 'history') {
                 renderOrders(state);
             }
-            state.status.replaceChildren(element('span', error.message || 'Loading failed. Please try again.'));
-            button('Retry', retry, state.status);
+            state.status.replaceChildren(element('span', error.message || t('Loading failed. Please try again.')));
+            button(t('Retry'), retry, state.status);
         }
 
         function cleanup() {
@@ -1358,8 +2268,8 @@
             const state = { host, path, kind, controller: new AbortController(), rows: [], selected: new Set(), loading: false, busy: false };
             view = state;
             const title = element('div', null, 'see-toolbar');
-            title.append(element('strong', `Steam-Economy-Enhancer-Upgraded · ${kind === 'history' ? 'Market history' : kind === 'buyorders' ? 'Buy orders' : 'Sell listings'}`));
-            button('Show original Steam list', () => {
+            title.append(element('strong', `Steam-Economy-Enhancer-Upgraded · ${kind === 'history' ? t('Market history') : kind === 'buyorders' ? t('Buy orders') : t('Sell listings')}`));
+            button(t('Show original Steam list'), () => {
                 suppressedPath = path;
                 cleanup();
             }, title);
@@ -1423,12 +2333,12 @@
             }
             const rest = levels.slice(depth);
             if (expanded && rest.length) {
-                const tr = itemBookRow(summary || template, `${money(rest[0].price, data.eCurrency)} or ${book.side === 'sell' ? 'more' : 'less'}`, rest.reduce((sum, level) => sum + level.quantity, 0).toLocaleString(locale));
+                const tr = itemBookRow(summary || template, t('{p0} or {p1}', { p0: money(rest[0].price, data.eCurrency), p1: book.side === 'sell' ? t('more') : t('less') }), rest.reduce((sum, level) => sum + level.quantity, 0).toLocaleString(locale));
                 tr.classList.add('see-book-remainder');
                 book.body.append(tr);
             }
             book.expand.disabled = !rest.length;
-            book.expand.textContent = rest.length ? 'Show 5 more price levels' : 'All price levels shown';
+            book.expand.textContent = rest.length ? t('Show 5 more price levels') : t('All price levels shown');
         }
 
         function itemBookRow(template, ...values) {
@@ -1494,7 +2404,7 @@
                     // Preserve the native typography wrappers around the new control.
                     const content = cell.querySelector(':empty') || cell;
                     content.replaceChildren();
-                    book.expand = button('Show 5 more price levels', () => {
+                    book.expand = button(t('Show 5 more price levels'), () => {
                         book.depth += 5;
                         renderItemBook(state, book);
                     }, content);
@@ -1530,8 +2440,8 @@
 
         function mountItemOrders(state, myOrders) {
             const title = element('div', null, 'see-toolbar');
-            title.append(element('strong', 'Your orders for this item'));
-            button('Show original Steam list', () => {
+            title.append(element('strong', t('Your orders for this item')));
+            button(t('Show original Steam list'), () => {
                 suppressedPath = state.path;
                 cleanup();
             }, title);
@@ -1541,7 +2451,7 @@
                     continue;
                 }
                 const section = element('section');
-                section.append(element('h3', kind === 'activelistings' ? 'Your sell listings' : 'Your buy orders'));
+                section.append(element('h3', kind === 'activelistings' ? t('Your sell listings') : t('Your buy orders')));
                 state.host.append(section);
                 const own = { host: section, kind, item: state.item, controller: state.controller, rows: [], selected: new Set(), loading: false, busy: false };
                 own.status = element('div', '', 'see-status');
@@ -1602,7 +2512,7 @@
                     // Keep working native tables visible when the initial read fails.
                     state.books.forEach(detachItemBook);
                     state.books = [];
-                    state.bookError = element('p', `Order book expansion unavailable: ${error.message}`, 'see-status');
+                    state.bookError = element('p', t('Order book expansion unavailable: {p0}', { p0: error.message }), 'see-status');
                     host.append(state.bookError);
                 }
             });
@@ -1684,7 +2594,6 @@
     const COLOR_ERROR = '#8A4243';
     const COLOR_SUCCESS = '#407736';
     const COLOR_PENDING = '#908F44';
-    const COLOR_PRICE_NOT_CHECKED = '#26566c';
 
     const ERROR_SUCCESS = null;
     const ERROR_FAILED = 1;
@@ -1700,13 +2609,11 @@
 
     const enableConsoleLog = false;
 
-    const country = typeof unsafeWindow.g_strCountryCode !== 'undefined' ? unsafeWindow.g_strCountryCode : undefined;
     const isLoggedIn = typeof unsafeWindow.g_rgWalletInfo !== 'undefined' && unsafeWindow.g_rgWalletInfo != null || typeof unsafeWindow.g_bLoggedIn !== 'undefined' && unsafeWindow.g_bLoggedIn;
 
     const currentPage = window.location.href.includes('.com/tradeoffer') ? PAGE_TRADEOFFER : PAGE_INVENTORY;
 
     const market = new SteamMarket(
-        unsafeWindow.g_rgAppContextData,
         getInventoryUrl(),
         isLoggedIn ? unsafeWindow.g_rgWalletInfo : undefined
     );
@@ -1750,9 +2657,7 @@
     // Check if the current currency uses round for fees.
     const useRound = CURRENCY_CODES_TO_ROUND.includes(currencyCode);
 
-    function SteamMarket(appContext, inventoryUrl, walletInfo) {
-        this.appContext = appContext;
-        this.inventoryUrl = inventoryUrl;
+    function SteamMarket(inventoryUrl, walletInfo) {
         this.walletInfo = walletInfo;
         this.inventoryUrlBase = inventoryUrl.replace('/inventory/json', '');
         if (!this.inventoryUrlBase.endsWith('/')) {
@@ -1770,7 +2675,7 @@
 
         // If the request was stopped, we don't want to send it to the server and continue other requests.
         if (request.stopped) {
-            const error = new Error('Request was not sent to the server, something went wrong');
+            const error = new Error(t('Request was not sent to the server, something went wrong'));
 
             setTimeout(() => request.queue.shift()?.(), 1);
             setTimeout(() => callback(error, null), 0);
@@ -1815,7 +2720,7 @@
              * @param {string} httpErrorText - textual portion of the HTTP status, in context of HTTP/2 it may be empty string.
              */
             error: (xhr, statusText, httpErrorText) => {
-                const error = new Error(`Request failed with status ${xhr.status || 0} (${statusText === 'error' ? 'http error' : statusText})`);
+                const error = new Error(t('Request failed with status {p0} ({p1})', { p0: xhr.status || 0, p1: statusText === 'error' ? t('http error') : statusText }));
 
                 error.url = url;
                 error.method = options.method;
@@ -1893,7 +2798,6 @@
     const SETTING_MIN_MISC_PRICE = 'SETTING_MIN_MISC_PRICE';
     const SETTING_MAX_MISC_PRICE = 'SETTING_MAX_MISC_PRICE';
     const SETTING_PRICE_OFFSET = 'SETTING_PRICE_OFFSET';
-    const SETTING_PRICE_MIN_CHECK_PRICE = 'SETTING_PRICE_MIN_CHECK_PRICE';
     const SETTING_PRICE_MIN_LIST_PRICE = 'SETTING_PRICE_MIN_LIST_PRICE';
     const SETTING_PRICE_ALGORITHM = 'SETTING_PRICE_ALGORITHM';
     const SETTING_PRICE_IGNORE_LOWEST_Q = 'SETTING_PRICE_IGNORE_LOWEST_Q';
@@ -1902,17 +2806,16 @@
     const SETTING_TRADEOFFER_PRICE_LABELS = 'SETTING_TRADEOFFER_PRICE_LABELS';
     const SETTING_QUICK_SELL_BUTTONS = 'SETTING_QUICK_SELL_BUTTONS';
     const SETTING_LAST_CACHE = 'SETTING_LAST_CACHE';
-    const SETTING_RELIST_AUTOMATICALLY = 'SETTING_RELIST_AUTOMATICALLY';
     const inventoryButtonSettings = [
-        ['SELL_ALL', '.sell_all', 'Sell all items'],
-        ['SELL_DUPLICATES', '.sell_all_duplicates', 'Sell all duplicate items'],
-        ['SELL_SELECTED', '.sell_selected', 'Sell selected items automatically'],
-        ['SELL_CARDS', '.sell_all_cards', 'Sell all cards'],
-        ['GEM_SELECTED', '.turn_into_gems', 'Turn selected items into gems'],
-        ['UNPACK_ALL', '.unpack_all_booster_packs', 'Unpack all booster packs'],
-        ['UNPACK_SELECTED', '.unpack_selected_booster_packs', 'Unpack selected booster packs'],
-        ['GEM_DUPLICATES', '.gem_all_duplicates', 'Turn all duplicate items into gems'],
-        ['SELL_CRATES', '.sell_all_crates', 'Sell all crates (TF2)']
+        ['SELL_ALL', '.sell_all', t('Sell all items')],
+        ['SELL_DUPLICATES', '.sell_all_duplicates', t('Sell all duplicate items')],
+        ['SELL_SELECTED', '.sell_selected', t('Sell selected items automatically')],
+        ['SELL_CARDS', '.sell_all_cards', t('Sell all cards')],
+        ['GEM_SELECTED', '.turn_into_gems', t('Turn selected items into gems')],
+        ['UNPACK_ALL', '.unpack_all_booster_packs', t('Unpack all booster packs')],
+        ['UNPACK_SELECTED', '.unpack_selected_booster_packs', t('Unpack selected booster packs')],
+        ['GEM_DUPLICATES', '.gem_all_duplicates', t('Turn all duplicate items into gems')],
+        ['SELL_CRATES', '.sell_all_crates', t('Sell all crates (TF2)')]
     ].map(([name, selector, label]) => ({ key: `SETTING_SHOW_${name}`, selector, label }));
 
     const settingDefaults = {
@@ -1923,7 +2826,6 @@
         SETTING_MIN_MISC_PRICE: 0.05,
         SETTING_MAX_MISC_PRICE: 10,
         SETTING_PRICE_OFFSET: 0.00,
-        SETTING_PRICE_MIN_CHECK_PRICE: 0.00,
         SETTING_PRICE_MIN_LIST_PRICE: 0.03,
         SETTING_PRICE_ALGORITHM: 1,
         SETTING_PRICE_IGNORE_LOWEST_Q: 1,
@@ -1932,7 +2834,6 @@
         SETTING_TRADEOFFER_PRICE_LABELS: 1,
         SETTING_QUICK_SELL_BUTTONS: 1,
         SETTING_LAST_CACHE: 0,
-        SETTING_RELIST_AUTOMATICALLY: 0,
         ...Object.fromEntries(inventoryButtonSettings.map(setting => [setting.key, 1]))
     };
 
@@ -2205,9 +3106,6 @@
         return str.length < max ? padLeftZero(`0${str}`, max) : str;
     }
 
-    function replaceNonNumbers(str) {
-        return str.replace(/\D/g, '');
-    }
     //#endregion
 
     //#region Steam Market
@@ -2915,7 +3813,7 @@
     }
 
     function logDOM(text) {
-        logger.innerHTML += `${text}<br/>`;
+        logger.append(document.createTextNode(text), document.createElement('br'));
 
         updateScroll();
     }
@@ -2945,10 +3843,10 @@
             totals.innerHTML = '';
 
             if (totalPriceWithFeesOnMarket > 0) {
-                totals.innerHTML += `<div><strong>Total listed for ${formatPrice(totalPriceWithFeesOnMarket)}, you will receive ${formatPrice(totalPriceWithoutFeesOnMarket)}.</strong></div>`;
+                totals.innerHTML += `<div><strong>${t('Total listed for {p0}, you will receive {p1}.', { p0: formatPrice(totalPriceWithFeesOnMarket), p1: formatPrice(totalPriceWithoutFeesOnMarket) })}</strong></div>`;
             }
             if (totalScrap > 0) {
-                totals.innerHTML += `<div><strong>Total scrap ${totalScrap}.</strong></div>`;
+                totals.innerHTML += `<div><strong>${t('Total gems: {p0}.', { p0: totalScrap })}</strong></div>`;
             }
         }
 
@@ -2963,8 +3861,7 @@
                 const padLeft = `${padLeftZero(`${totalNumberOfProcessedQueueItems}`, digits)} / ${totalNumberOfQueuedItems}`;
 
                 if (getSettingWithDefault(SETTING_PRICE_MIN_LIST_PRICE) * 100 >= market.getPriceIncludingFees(task.sellPrice)) {
-                    logDOM(`${padLeft} - ${itemNameWithAmount} is not listed due to ignoring price settings.`);
-                    $(`#${task.item.appid}_${task.item.contextid}_${itemId}`).css('background', COLOR_PRICE_NOT_CHECKED);
+                    logDOM(t('{p0} - {p1} is not listed due to ignoring price settings.', { p0: padLeft, p1: itemNameWithAmount }));
                     next();
                     return;
                 }
@@ -2979,7 +3876,7 @@
                         const callback = () => setTimeout(() => next(), getRandomInt(1000, 1500));
 
                         if (success) {
-                            logDOM(`${padLeft} - ${itemNameWithAmount} listed for ${formatPrice(market.getPriceIncludingFees(task.sellPrice) * task.item.amount)}, you will receive ${formatPrice(task.sellPrice * task.item.amount)}.`);
+                            logDOM(t('{p0} - {p1} listed for {p2}, you will receive {p3}.', { p0: padLeft, p1: itemNameWithAmount, p2: formatPrice(market.getPriceIncludingFees(task.sellPrice) * task.item.amount), p3: formatPrice(task.sellPrice * task.item.amount) }));
                             $(`#${task.item.appid}_${task.item.contextid}_${itemId}`).css('background', COLOR_SUCCESS);
 
                             totalPriceWithoutFeesOnMarket += task.sellPrice * task.item.amount;
@@ -2992,7 +3889,7 @@
                         }
 
                         if (message && isRetryMessage(message)) {
-                            logDOM(`${padLeft} - ${itemNameWithAmount} retrying listing because: ${message.charAt(0).toLowerCase()}${message.slice(1)}`);
+                            logDOM(t('{p0} - {p1} retrying listing because: {p2}{p3}', { p0: padLeft, p1: itemNameWithAmount, p2: message.charAt(0).toLowerCase(), p3: message.slice(1) }));
 
                             totalNumberOfProcessedQueueItems--;
                             sellQueue.unshift(task);
@@ -3004,7 +3901,7 @@
                             return;
                         }
 
-                        logDOM(`${padLeft} - ${itemNameWithAmount} not added to market${message ? ` because:  ${message.charAt(0).toLowerCase()}${message.slice(1)}` : '.'}`);
+                        logDOM(t('{p0} - {p1} not added to market{p2}', { p0: padLeft, p1: itemNameWithAmount, p2: message ? t(' because:  {p0}{p1}', { p0: message.charAt(0).toLowerCase(), p1: message.slice(1) }) : '.' }));
                         $(`#${task.item.appid}_${task.item.contextid}_${itemId}`).css('background', COLOR_ERROR);
 
                         callback();
@@ -3019,7 +3916,7 @@
         });
 
         function sellAllItems() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3040,7 +3937,7 @@
         }
 
         function sellAllDuplicateItems() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3064,7 +3961,7 @@
         }
 
         function gemAllDuplicateItems() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3103,13 +4000,13 @@
                 if (numberOfQueuedItems > 0) {
                     totalNumberOfQueuedItems += numberOfQueuedItems;
 
-                    renderSpinner(`Processing ${numberOfQueuedItems} items`);
+                    renderSpinner(t('Processing {p0} items', { p0: numberOfQueuedItems }));
                 }
             });
         }
 
         function sellAllCards() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3130,7 +4027,7 @@
         }
 
         function sellAllCrates() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3188,7 +4085,7 @@
 
                     if (err != ERROR_SUCCESS) {
                         logConsole(`Failed to get gems value for ${itemName}`);
-                        logDOM(`${padLeft} - ${itemName} not turned into gems due to missing gems value.`);
+                        logDOM(t('{p0} - {p1} not turned into gems due to missing gems value.', { p0: padLeft, p1: itemName }));
 
                         $(`#${item.appid}_${item.contextid}_${itemId}`).css('background', COLOR_ERROR);
                         return callback(false);
@@ -3201,7 +4098,7 @@
                         (err) => {
                             if (err != ERROR_SUCCESS) {
                                 logConsole(`Failed to turn item into gems for ${itemName}`);
-                                logDOM(`${padLeft} - ${itemName} not turned into gems due to unknown error.`);
+                                logDOM(t('{p0} - {p1} not turned into gems due to unknown error.', { p0: padLeft, p1: itemName }));
 
                                 $(`#${item.appid}_${item.contextid}_${itemId}`).css('background', COLOR_ERROR);
                                 return callback(false);
@@ -3210,7 +4107,7 @@
                             logConsole('============================');
                             logConsole(itemName);
                             logConsole(`Turned into ${goo.goo_value} gems`);
-                            logDOM(`${padLeft} - ${itemName} turned into ${item.goo_value_expected} gems.`);
+                            logDOM(t('{p0} - {p1} turned into {p2} gems.', { p0: padLeft, p1: itemName, p2: item.goo_value_expected }));
                             $(`#${item.appid}_${item.contextid}_${itemId}`).css('background', COLOR_SUCCESS);
 
                             totalScrap += item.goo_value_expected;
@@ -3263,13 +4160,13 @@
 
                     if (err != ERROR_SUCCESS) {
                         logConsole(`Failed to unpack booster pack ${itemName}`);
-                        logDOM(`${padLeft} - ${itemName} not unpacked.`);
+                        logDOM(t('{p0} - {p1} not unpacked.', { p0: padLeft, p1: itemName }));
 
                         $(`#${item.appid}_${item.contextid}_${itemId}`).css('background', COLOR_ERROR);
                         return callback(false);
                     }
 
-                    logDOM(`${padLeft} - ${itemName} unpacked.`);
+                    logDOM(t('{p0} - {p1} unpacked.', { p0: padLeft, p1: itemName }));
                     $(`#${item.appid}_${item.contextid}_${itemId}`).css('background', COLOR_SUCCESS);
 
                     callback(true);
@@ -3282,7 +4179,7 @@
         function turnSelectedItemsIntoGems() {
             const ids = getSelectedItems();
 
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3322,14 +4219,14 @@
                 if (numberOfQueuedItems > 0) {
                     totalNumberOfQueuedItems += numberOfQueuedItems;
 
-                    renderSpinner(`Processing ${numberOfQueuedItems} items`);
+                    renderSpinner(t('Processing {p0} items', { p0: numberOfQueuedItems }));
                 }
             });
         }
 
         // Unpacks all booster packs.
         function unpackAllBoosterPacks() {
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3361,14 +4258,14 @@
                 });
 
                 if (numberOfQueuedItems === 0) {
-                    logDOM('No booster packs found in the inventory to unpack.');
+                    logDOM(t('No booster packs found in the inventory to unpack.'));
 
                     return;
                 }
 
                 totalNumberOfQueuedItems += numberOfQueuedItems;
 
-                renderSpinner(`Processing ${numberOfQueuedItems} items`);
+                renderSpinner(t('Processing {p0} items', { p0: numberOfQueuedItems }));
             });
         }
 
@@ -3376,7 +4273,7 @@
         function unpackSelectedBoosterPacks() {
             const ids = getSelectedItems();
 
-            renderSpinner('Loading inventory items');
+            renderSpinner(t('Loading inventory items'));
 
             loadAllInventories().then(() => {
                 removeSpinner();
@@ -3412,7 +4309,7 @@
                 if (numberOfQueuedItems > 0) {
                     totalNumberOfQueuedItems += numberOfQueuedItems;
 
-                    renderSpinner(`Processing ${numberOfQueuedItems} items`);
+                    renderSpinner(t('Processing {p0} items', { p0: numberOfQueuedItems }));
                 }
             });
         }
@@ -3447,7 +4344,7 @@
                     return;
                 }
                 if (!canSellSelectedItemsManually(items)) {
-                    unsafeWindow.ShowAlertDialog('Bulk sell', 'Steam multisell requires commodity items from the same inventory.');
+                    unsafeWindow.ShowAlertDialog(t('Bulk sell'), t('Steam multisell requires commodity items from the same inventory.'));
                     return;
                 }
                 // We have to construct an URL like this
@@ -3482,7 +4379,7 @@
 
         function sellItems(items) {
             if (items.length == 0) {
-                logDOM('These items cannot be added to the market...');
+                logDOM(t('These items cannot be added to the market...'));
 
                 return;
             }
@@ -3504,7 +4401,7 @@
             if (numberOfQueuedItems > 0) {
                 totalNumberOfQueuedItems += numberOfQueuedItems;
 
-                renderSpinner(`Processing ${numberOfQueuedItems} items`);
+                renderSpinner(t('Processing {p0} items', { p0: numberOfQueuedItems }));
             }
         }
 
@@ -3759,14 +4656,14 @@
             // Keep the mandatory action visible, including while inventory data loads.
             const manual = $('.sell_manual').show();
             manual.prop('disabled', !getSelectedItems().length);
-            manual.attr('title', getSelectedItems().length ? '' : '选中至少一件进行批量销售的物品');
+            manual.attr('title', getSelectedItems().length ? '' : t('Select at least one item to sell in bulk'));
             getInventorySelectedMarketableItems((items) => {
                 const selectedItems = items.length;
                 if (items.length == 0) {
                     $('.sell_selected').hide();
                 } else {
                     $('.sell_selected').show();
-                    $('.sell_selected > span').text(`Sell ${selectedItems}${selectedItems == 1 ? ' Item' : ' Items'}`);
+                    $('.sell_selected > span').text(t('Sell selected items ({p0})', { p0: selectedItems }));
                 }
             });
         }
@@ -3780,7 +4677,7 @@
                 } else {
                     $('.turn_into_gems').show();
                     $('.turn_into_gems > span').
-                        text(`Turn ${selectedItems}${selectedItems == 1 ? ' Item Into Gems' : ' Items Into Gems'}`);
+                        text(t('Turn selected items into gems ({p0})', { p0: selectedItems }));
                 }
             });
         }
@@ -3794,7 +4691,7 @@
                 } else {
                     $('.unpack_selected_booster_packs').show();
                     $('.unpack_selected_booster_packs > span').
-                        text(`Unpack ${selectedItems}${selectedItems == 1 ? ' Booster Pack' : ' Booster Packs'}`);
+                        text(t('Unpack selected booster packs ({p0})', { p0: selectedItems }));
                 }
             });
         }
@@ -3845,7 +4742,8 @@
                 }
             };
 
-            const isBoosterPack = selectedItem.name.toLowerCase().endsWith('booster pack');
+            const isBoosterPack = (selectedItem.tags || []).some(tag => tag.category === 'item_class' && tag.internal_name === 'item_class_5')
+                || (selectedItem.owner_actions || []).some(action => action.link?.includes('OpenBooster'));
             if (isBoosterPack) {
                 const tradingCardsUrl = `/market/search?q=&category_753_Game%5B%5D=tag_app_${selectedItem.market_fee_app}&category_753_item_class%5B%5D=tag_item_class_2&appid=753`;
                 const communityHeader = $('h1', item_info).next().find('span').eq(0);
@@ -3890,12 +4788,12 @@
 
                     const groupMain = $(`<div id="listings_group">
                         <div>
-                            <div id="listings_sell">Sell</div>
-                            <table class="market_commodity_orders_table"><tr><th align="right">Price</th><th align="right">Quantity</th></tr>${sellRows}</table>
+                            <div id="listings_sell">${t('Sell')}</div>
+                            <table class="market_commodity_orders_table"><tr><th align="right">${t('Price')}</th><th align="right">${t('Quantity')}</th></tr>${sellRows}</table>
                         </div>
                         <div>
-                            <div id="listings_buy">Buy</div>
-                            <table class="market_commodity_orders_table"><tr><th align="right">Price</th><th align="right">Quantity</th></tr>${buyRows}</table>
+                            <div id="listings_buy">${t('Buy')}</div>
+                            <table class="market_commodity_orders_table"><tr><th align="right">${t('Price')}</th><th align="right">${t('Quantity')}</th></tr>${buyRows}</table>
                         </div>
                     </div>`);
 
@@ -3935,7 +4833,7 @@
                         <input id="quick_sell_input" style="background-color: black;color: white;border: transparent;max-width:65px;text-align:center;" type="number" value="${((orderbook.lowest_sell_order || 0) / 100).toFixed(2)}" step="0.01" />&nbsp;
                         <a class="item_market_action_button item_market_action_button_green quick_sell_custom">
                             <span class="item_market_action_button_edge item_market_action_button_left"></span>
-                            <span class="item_market_action_button_contents">➜ Sell</span>
+                            <span class="item_market_action_button_contents">➜ ${t('Sell')}</span>
                             <span class="item_market_action_button_edge item_market_action_button_right"></span>
                             <span class="item_market_action_button_preload"></span>
                         </a>
@@ -3991,30 +4889,30 @@
             const TF2 = appId == 440;
 
             let buttonsHtml = `
-                <a class="btn_green_white_innerfade btn_medium_wide sell_all"><span>Sell All Items</span></a>
-                <a class="btn_green_white_innerfade btn_medium_wide sell_all_duplicates"><span>Sell All Duplicate Items</span></a>
-                <a class="btn_green_white_innerfade btn_medium_wide sell_selected" style="display:none"><span>Sell Selected Items</span></a>
-                <button type="button" class="btn_green_white_innerfade btn_medium_wide sell_manual" disabled title="选中至少一件进行批量销售的物品"><span>批量出售物品</span></button>
+                <a class="btn_green_white_innerfade btn_medium_wide sell_all"><span>${t('Sell All Items')}</span></a>
+                <a class="btn_green_white_innerfade btn_medium_wide sell_all_duplicates"><span>${t('Sell All Duplicate Items')}</span></a>
+                <a class="btn_green_white_innerfade btn_medium_wide sell_selected" style="display:none"><span>${t('Sell Selected Items')}</span></a>
+                <button type="button" class="btn_green_white_innerfade btn_medium_wide sell_manual" disabled title="${t('Select at least one item to sell in bulk')}"><span>${t('Bulk sell items')}</span></button>
             `;
 
             if (showMiscOptions) {
                 buttonsHtml += `
-                    <a class="btn_green_white_innerfade btn_medium_wide sell_all_cards"><span>Sell All Cards</span></a>
+                    <a class="btn_green_white_innerfade btn_medium_wide sell_all_cards"><span>${t('Sell All Cards')}</span></a>
                     <div class="see_inventory_buttons">
-                        <a class="btn_darkblue_white_innerfade btn_medium_wide turn_into_gems" style="display:none"><span>Turn Selected Items Into Gems</span></a>
-                        <a class="btn_darkblue_white_innerfade btn_medium_wide unpack_all_booster_packs"><span>Unpack All Booster Packs</span></a>
-                        <a class="btn_darkblue_white_innerfade btn_medium_wide unpack_selected_booster_packs" style="display:none"><span>Unpack Selected Booster Packs</span></a>
-                        <a class="btn_darkblue_white_innerfade btn_medium_wide gem_all_duplicates"><span>Turn All Duplicate Items Into Gems</span></a>
+                        <a class="btn_darkblue_white_innerfade btn_medium_wide turn_into_gems" style="display:none"><span>${t('Turn Selected Items Into Gems')}</span></a>
+                        <a class="btn_darkblue_white_innerfade btn_medium_wide unpack_all_booster_packs"><span>${t('Unpack All Booster Packs')}</span></a>
+                        <a class="btn_darkblue_white_innerfade btn_medium_wide unpack_selected_booster_packs" style="display:none"><span>${t('Unpack Selected Booster Packs')}</span></a>
+                        <a class="btn_darkblue_white_innerfade btn_medium_wide gem_all_duplicates"><span>${t('Turn All Duplicate Items Into Gems')}</span></a>
                     </div>
                 `;
             } else if (TF2) {
-                buttonsHtml += '<a class="btn_green_white_innerfade btn_medium_wide sell_all_crates"><span>Sell All Crates</span></a>';
+                buttonsHtml += `<a class="btn_green_white_innerfade btn_medium_wide sell_all_crates"><span>${t('Sell All Crates')}</span></a>`;
             }
 
             const sellButtons = $(`<div id="inventory_sell_buttons" class="see_inventory_buttons">${buttonsHtml}</div>`);
 
             const reloadButton =
-                $('<a id="inventory_reload_button" class="btn_darkblue_white_innerfade btn_medium_wide reload_inventory" style="margin-right:12px"><span>Reload Inventory</span></a>');
+                $(`<a id="inventory_reload_button" class="btn_darkblue_white_innerfade btn_medium_wide reload_inventory" style="margin-right:12px"><span>${t('Reload Inventory')}</span></a>`);
 
             const logo = $('#inventory_logos')[0];
             logo.style.height = 'auto';
@@ -4216,7 +5114,7 @@
                         ? '∞'
                         : formatPrice(market.getPriceIncludingFees(sellPrice));
 
-                    const elementName = `${(currentPage == PAGE_TRADEOFFER ? '#item' : '#')}${item.appid}_${item.contextid}_${item.id}`;
+                    const elementName = `${currentPage == PAGE_TRADEOFFER ? '#item' : '#'}${item.appid}_${item.contextid}_${item.id}`;
                     const element = $(elementName);
 
                     $('.inventory_item_price', element).remove();
@@ -4307,7 +5205,7 @@
                         text += ` (${rgItem.type})`;
                     }
                 } else {
-                    text = 'Unknown Item';
+                    text = t('Unknown Item');
                 }
 
                 if (text in total) {
@@ -4329,13 +5227,13 @@
                 return a[1] - b[1];
             }).reverse();
 
-            let totalText = `<strong>Number of unique items: ${sortable.length}, worth ${formatPrice(totalPrice)}<br/><br/></strong>`;
+            let totalText = `<strong>${t('Number of unique items: {p0}, worth {p1}', { p0: sortable.length, p1: formatPrice(totalPrice) })}<br/><br/></strong>`;
             let totalNumOfItems = 0;
             for (let i = 0; i < sortable.length; i++) {
-                totalText += `${sortable[i][1]}x ${sortable[i][0]}<br/>`;
+                totalText += `${sortable[i][1]}x ${$('<span>').text(sortable[i][0]).html()}<br/>`;
                 totalNumOfItems += sortable[i][1];
             }
-            totalText += `<br/><strong>Total items: ${totalNumOfItems}</strong><br/>`;
+            totalText += `<br/><strong>${t('Total items: {p0}', { p0: totalNumOfItems })}</strong><br/>`;
 
             return totalText;
         }
@@ -4417,7 +5315,7 @@
         const appendSelectPageButton = () => {
             $('#inventory_displaycontrols').append(`<div class="trade_offer_buttons">
               <a class="item_market_action_button item_market_action_button_green select_all">
-                  <span class="item_market_action_button_contents" style="text-transform:none">Select all from page</span>
+                  <span class="item_market_action_button_contents" style="text-transform:none">${t('Select all from page')}</span>
               </a>
           </div>`);
 
@@ -4452,74 +5350,66 @@
     function openSettings() {
         const price_options = $(`<div id="see_settings_modal">
             <div>
-                Calculate prices as the:&nbsp;
+                ${t('Calculate prices as the:')}&nbsp;
                 <select id="${SETTING_PRICE_ALGORITHM}">
-                    <option value="1"${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 1 ? 'selected="selected"' : ''}>Maximum of the average history and lowest sell listing</option>
-                    <option value="2" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 2 ? 'selected="selected"' : ''}>Lowest sell listing</option>
-                    <option value="3" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 3 ? 'selected="selected"' : ''}>Highest current buy order or lowest sell listing</option>
-                    <option value="4" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 4 ? 'selected="selected"' : ''}>Average history only</option>
+                    <option value="1"${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 1 ? 'selected="selected"' : ''}>${t('Maximum of the average history and lowest sell listing')}</option>
+                    <option value="2" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 2 ? 'selected="selected"' : ''}>${t('Lowest sell listing')}</option>
+                    <option value="3" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 3 ? 'selected="selected"' : ''}>${t('Highest current buy order or lowest sell listing')}</option>
+                    <option value="4" ${getSettingWithDefault(SETTING_PRICE_ALGORITHM) == 4 ? 'selected="selected"' : ''}>${t('Average history only')}</option>
                 </select>
             </div>
             <div style="margin-top:6px;">
-                Hours to use for the average history calculated price:&nbsp;
+                ${t('Hours to use for the average history calculated price:')}&nbsp;
                 <input type="number" min="0" step="2" id="${SETTING_PRICE_HISTORY_HOURS}" value=${getSettingWithDefault(SETTING_PRICE_HISTORY_HOURS)}>
             </div>
             <div style="margin-top:6px;">
-                The value to add to the calculated price (minimum and maximum are respected):&nbsp;
+                ${t('The value to add to the calculated price (minimum and maximum are respected):')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_PRICE_OFFSET}" value=${getSettingWithDefault(SETTING_PRICE_OFFSET)}>
             </div>
             <div style="margin-top:6px">
-                Use the second lowest sell listing when the lowest sell listing has a low quantity:&nbsp;
+                ${t('Use the second lowest sell listing when the lowest sell listing has a low quantity:')}&nbsp;
                 <input type="checkbox" id="${SETTING_PRICE_IGNORE_LOWEST_Q}" ${getSettingWithDefault(SETTING_PRICE_IGNORE_LOWEST_Q) == 1 ? 'checked' : ''}>
             </div>
             <div style="margin-top:6px;">
-                Don't check market listings with prices of and below:&nbsp;
-                <input type="number" step="0.01" id="${SETTING_PRICE_MIN_CHECK_PRICE}" value=${getSettingWithDefault(SETTING_PRICE_MIN_CHECK_PRICE)}>
-            </div>
-            <div style="margin-top:6px;">
-                Don't list market listings with prices of and below:&nbsp;
+                ${t('Don\'t list market listings with prices of and below:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_PRICE_MIN_LIST_PRICE}" value=${getSettingWithDefault(SETTING_PRICE_MIN_LIST_PRICE)}>
             </div>
             <div style="margin-top:24px">
-                Show price labels in inventory:&nbsp;
+                ${t('Show price labels in inventory:')}&nbsp;
                 <input type="checkbox" id="${SETTING_INVENTORY_PRICE_LABELS}" ${getSettingWithDefault(SETTING_INVENTORY_PRICE_LABELS) == 1 ? 'checked' : ''}>
             </div>
             <div style="margin-top:6px">
-                Show price labels in trade offers:&nbsp;
+                ${t('Show price labels in trade offers:')}&nbsp;
                 <input type="checkbox" id="${SETTING_TRADEOFFER_PRICE_LABELS}" ${getSettingWithDefault(SETTING_TRADEOFFER_PRICE_LABELS) == 1 ? 'checked' : ''}>
             </div>
             <div style="margin-top:6px">
-                Show quick sell info and buttons:&nbsp;
+                ${t('Show quick sell info and buttons:')}&nbsp;
                 <input type="checkbox" id="${SETTING_QUICK_SELL_BUTTONS}" ${getSettingWithDefault(SETTING_QUICK_SELL_BUTTONS) == 1 ? 'checked' : ''}>
             </div>
             <div style="margin-top:24px;">
-                Minimum:&nbsp;
+                ${t('Minimum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MIN_NORMAL_PRICE}" value=${getSettingWithDefault(SETTING_MIN_NORMAL_PRICE)}>
-                &nbsp;and maximum:&nbsp;
+                &nbsp;${t('and maximum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MAX_NORMAL_PRICE}" value=${getSettingWithDefault(SETTING_MAX_NORMAL_PRICE)}>
-                &nbsp;price for normal cards
+                &nbsp;${t('price for normal cards')}
             </div>
             <div style="margin-top:6px;">
-                Minimum:&nbsp;
+                ${t('Minimum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MIN_FOIL_PRICE}" value=${getSettingWithDefault(SETTING_MIN_FOIL_PRICE)}>
-                &nbsp;and maximum:&nbsp;
+                &nbsp;${t('and maximum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MAX_FOIL_PRICE}" value=${getSettingWithDefault(SETTING_MAX_FOIL_PRICE)}>
-                &nbsp;price for foil cards
+                &nbsp;${t('price for foil cards')}
             </div>
             <div style="margin-top:6px;">
-                Minimum:&nbsp;
+                ${t('Minimum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MIN_MISC_PRICE}" value=${getSettingWithDefault(SETTING_MIN_MISC_PRICE)}>
-                &nbsp;and maximum:&nbsp;
+                &nbsp;${t('and maximum:')}&nbsp;
                 <input type="number" step="0.01" id="${SETTING_MAX_MISC_PRICE}" value=${getSettingWithDefault(SETTING_MAX_MISC_PRICE)}>
-                &nbsp;price for other items
-            </div>
-            <div style="margin-top:6px;">
-                Automatically relist overpriced market listings (slow on large inventories):&nbsp;
-                <input id="${SETTING_RELIST_AUTOMATICALLY}" class="market_relist_auto" type="checkbox" ${getSettingWithDefault(SETTING_RELIST_AUTOMATICALLY) == 1 ? 'checked' : ''}>
+                &nbsp;${t('price for other items')}
             </div>
         </div>`);
 
-        const visibility = $('<fieldset class="see-button-settings"><legend>Inventory action buttons</legend><p>Bulk sell is always available when items are selected.</p></fieldset>');
+        const visibility = $(`<fieldset class="see-button-settings"><legend>${t('Inventory action buttons')}</legend><p>${t('Bulk sell is always available when items are selected.')}</p></fieldset>`);
         for (const setting of inventoryButtonSettings) {
             const label = $('<label></label>');
             $('<input type="checkbox">').attr('id', setting.key).prop('checked', getSettingWithDefault(setting.key) == 1).appendTo(label);
@@ -4540,12 +5430,10 @@
             setSetting(SETTING_MIN_MISC_PRICE, $(`#${SETTING_MIN_MISC_PRICE}`, price_options).val());
             setSetting(SETTING_MAX_MISC_PRICE, $(`#${SETTING_MAX_MISC_PRICE}`, price_options).val());
             setSetting(SETTING_PRICE_OFFSET, $(`#${SETTING_PRICE_OFFSET}`, price_options).val());
-            setSetting(SETTING_PRICE_MIN_CHECK_PRICE, $(`#${SETTING_PRICE_MIN_CHECK_PRICE}`, price_options).val());
             setSetting(SETTING_PRICE_MIN_LIST_PRICE, $(`#${SETTING_PRICE_MIN_LIST_PRICE}`, price_options).val())
             setSetting(SETTING_PRICE_ALGORITHM, $(`#${SETTING_PRICE_ALGORITHM}`, price_options).val());
             setSetting(SETTING_PRICE_IGNORE_LOWEST_Q, $(`#${SETTING_PRICE_IGNORE_LOWEST_Q}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_PRICE_HISTORY_HOURS, $(`#${SETTING_PRICE_HISTORY_HOURS}`, price_options).val());
-            setSetting(SETTING_RELIST_AUTOMATICALLY, $(`#${SETTING_RELIST_AUTOMATICALLY}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_INVENTORY_PRICE_LABELS, $(`#${SETTING_INVENTORY_PRICE_LABELS}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_TRADEOFFER_PRICE_LABELS, $(`#${SETTING_TRADEOFFER_PRICE_LABELS}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_QUICK_SELL_BUTTONS, $(`#${SETTING_QUICK_SELL_BUTTONS}`, price_options).prop('checked') ? 1 : 0);
@@ -4566,9 +5454,6 @@
         #listings_group { display: flex; justify-content: space-between; margin-bottom: 8px; }
         #listings_sell { text-align: right; color: #589328; font-weight:600; }
         #listings_buy { text-align: right; color: #589328; font-weight:600; }
-        .pick_and_sell_button > a { vertical-align: middle; }
-        .market_relist_auto { margin-bottom: 8px;  }
-        .market_relist_auto_label { margin-right: 6px; }
         .quick_sell { margin-right: 4px; }
 
         .spinner {margin:10px auto;width:50px;height:40px;text-align:center;font-size:10px;}
@@ -4582,7 +5467,6 @@
             20% {transform:scaleY(1.0);}
         }
 
-        .price_option_price { width: 100px }
         .inventory_item_price { top: 0px;position: absolute;right: 0;background: #3571a5;padding: 2px;color: white; font-size:11px; border: 1px solid #666666;}
 
         .see_inventory_buttons {display:flex;flex-wrap:wrap;gap:10px;align-items:start;}

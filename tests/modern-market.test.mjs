@@ -106,6 +106,26 @@ function boot(t, kind = 'activelistings', queries = [], handler = () => assert.f
     const { window } = dom;
     const calls = [];
     window.SSR = { renderContext: { queryData: JSON.stringify({ queries }) }, loaderData: config.loaderData || [] };
+    if (config.ssrLanguage) {
+        window.SSR.Config = { LANGUAGE: config.ssrLanguage };
+    }
+    if (config.localizationLanguages) {
+        window.SSR.renderContext.localizationSettings = { languages: config.localizationLanguages };
+    }
+    if (config.steamLanguage) {
+        window.g_strLanguage = config.steamLanguage;
+    }
+    if (config.cookieLanguage) {
+        window.document.cookie = `Steam_Language=${encodeURIComponent(config.cookieLanguage)}`;
+    }
+    if (config.ssrElement) {
+        const payload = window.document.createElement('script');
+        payload.id = 'valve-ssr-data';
+        payload.type = 'application/json';
+        payload.textContent = JSON.stringify(window.SSR);
+        window.document.head.append(payload);
+        delete window.SSR;
+    }
     window.unsafeWindow = window;
     window.jQuery = { noConflict() {} };
     window.async = {};
@@ -194,16 +214,16 @@ test('untrusted compatibility image URLs are ignored', async t => {
     assert.equal(app.document.querySelector('tbody img'), null);
 });
 
-test('market controls and messages use English even when the Steam page language differs', async t => {
+test('unsupported Steam languages fall back to English', async t => {
     for (const kind of ['activelistings', 'buyorders', 'history']) {
-        const app = boot(t, kind, [query(kind, [entry('1')])], () => response({ success: true, start: 0, total_count: 1, results_html: legacyRow('1', 'Item', { history: true }) }), 'zh-CN');
+        const app = boot(t, kind, [query(kind, [entry('1')])], () => response({ success: true, start: 0, total_count: 1, results_html: legacyRow('1', 'Item', { history: true }) }), 'de-DE');
         if (kind === 'history') {
             await waitFor(() => app.document.querySelector('tbody a'));
         } else if (kind === 'activelistings') {
             app.click('Modify');
         }
         const host = app.document.querySelector('#see-modern-market');
-        assert.doesNotMatch(host.textContent.replace('重新上架选中物品', ''), /\p{Script=Han}/u);
+        assert.doesNotMatch(host.textContent, /\p{Script=Han}|\p{Script=Cyrillic}/u);
         for (const node of host.querySelectorAll('[aria-label], [title], [placeholder]')) {
             assert.doesNotMatch([node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('placeholder')].join(' '), /\p{Script=Han}/u);
         }
@@ -388,7 +408,7 @@ test('batch removal confirms hidden selections, sends exact string IDs and stops
 };
     app.click('Remove selected');
     await waitFor(() => app.document.querySelector('[role=status]').textContent.includes('operation stopped'));
-    assert.match(confirmations.at(-1), /1 selected item is hidden by the current filter/);
+    assert.match(confirmations.at(-1), /Hidden selected items: 1/);
     assert.equal(app.calls.length, 1);
     assert.match(app.calls[0].url, /9007199254740993123$/);
     app.search('');
@@ -730,10 +750,10 @@ test('bulk repricing previews actual fees and submits only direct native price c
         assert.equal(payload.mp[2], 2029);
         return response({ data: { eResult: 1, eUpdateResult: 1, bRequiresConfirmation: ids.length === 2 } });
     }));
-    assert.equal(app.click('重新上架选中物品').disabled, true);
+    assert.equal(app.click('Reprice selected').disabled, true);
     app.click('Select All');
     app.search('Item 2');
-    app.click('重新上架选中物品');
+    app.click('Reprice selected');
     await waitFor(() => !app.document.querySelector('.see-reprice-dialog button').disabled);
     const preview = app.document.querySelector('.see-reprice-dialog');
     assert.equal(preview.querySelectorAll('tbody tr').length, 2);
@@ -760,7 +780,7 @@ test('bulk repricing respects currency increments and fee caps and stops after a
         ask: 299
     }));
     app.click('Select All');
-    app.click('重新上架选中物品');
+    app.click('Reprice selected');
     await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('3 / 3 listings ready'));
     assert.match(app.document.querySelector('.see-reprice-dialog').textContent, /HK\$2.90HK\$2.60Ready/);
     app.click('Apply price changes');
@@ -773,7 +793,7 @@ test('invalid fee rules and changed currencies never enable bulk submission', as
     for (const config of [{ fees: {} }, { wallet: { ...walletRules, wallet_currency: 1 } }]) {
         const app = boot(t, 'activelistings', [query('activelistings', [entry('1')])], repriceService(() => assert.fail('No writes expected'), config));
         app.click('Select All');
-        app.click('重新上架选中物品');
+        app.click('Reprice selected');
         await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('Could not prepare'));
         assert.equal([...app.document.querySelectorAll('button')].find(b => b.textContent === 'Apply price changes').disabled, true);
     }
@@ -840,7 +860,7 @@ test('item own listings reuse selection, filtering, sorting, totals and direct r
     app.search('Sack');
     assert.equal(app.rows().length, 1);
     app.click('Select All');
-    app.click('重新上架选中物品');
+    app.click('Reprice selected');
     await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('1 / 1 listings ready'));
     app.click('Close');
     app.click('Show original Steam list');
@@ -934,7 +954,7 @@ test('zero publisher fees use Steam defaults and cancelled previews never write 
         return response({ data: { eResult: 1, eUpdateResult: 1 } });
     }, { fees: { steam_fee: { fee_rate: 0.05 }, publisher_fee: {} } }));
     app.click('Select All');
-    app.click('重新上架选中物品');
+    app.click('Reprice selected');
     await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('1 / 1 listings ready'));
     assert.match(app.document.querySelector('.see-reprice-dialog').textContent, /HK\$3.00HK\$3.00HK\$2.86Ready/);
     app.window.confirm = () => false;
@@ -942,4 +962,127 @@ test('zero publisher fees use Steam defaults and cancelled previews never write 
     assert.equal(writes, 0);
     app.click('Close');
     assert.equal(app.document.querySelector('.see-reprice-dialog'), null);
+});
+
+test('Steam language detection supports SSR, legacy globals, page language and cookie fallback', t => {
+    const cases = [
+        ['en-US', { ssrLanguage: 'schinese' }, '全选'],
+        ['zh-CN', { ssrLanguage: 'russian' }, 'Выбрать всё'],
+        ['zh-CN', { steamLanguage: 'german' }, 'Select All'],
+        ['en-US', { steamLanguage: 'russian' }, 'Выбрать всё'],
+        ['en-US', { localizationLanguages: [{ strLanguage: 'schinese' }] }, '全选'],
+        ['en-US', { ssrLanguage: 'russian', ssrElement: true }, 'Выбрать всё'],
+        ['', { cookieLanguage: 'russian' }, 'Выбрать всё'],
+        ['zh-Hans', {}, '全选'],
+        ['ru-RU', {}, 'Выбрать всё'],
+        ['', {}, 'Select All'],
+        ['zh-TW', {}, 'Select All']
+    ];
+    for (const [htmlLanguage, config, label] of cases) {
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1')])], undefined, htmlLanguage, config);
+        assert.ok(app.click(label));
+        assert.equal(app.rows().length, 1);
+    }
+    const parameter = boot(t, 'activelistings?l=schinese', [query('activelistings', [entry('1')])]);
+    assert.ok(parameter.click('全选'));
+});
+
+test('localized market controls preserve item data and sort, filter and select correctly', t => {
+    for (const [language, labels] of [
+        ['schinese', { select: '全选', name: '名称', remove: '下架选中物品', total: '挂单总金额', price: '通常价格', locale: 'zh-CN' }],
+        ['russian', { select: 'Выбрать всё', name: 'Название', remove: 'Снять выбранные', total: 'Общая сумма лотов', price: 'Обычная цена', locale: 'ru-RU' }]
+    ]) {
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 329, { name: 'Select All' }), entry('2', 529, { name: 'Zebra' })])], undefined, 'en-US', { ssrLanguage: language });
+        assert.equal(app.rows()[0].querySelector('a').textContent, 'Select All');
+        assert.match(app.document.querySelector('.see-totals').textContent, new RegExp(labels.total));
+        assert.ok(app.click(labels.price));
+        assert.ok(app.click(labels.name));
+        app.search('Zebra');
+        assert.equal(app.rows().length, 1);
+        app.click(labels.select);
+        app.window.confirm = () => false;
+        assert.equal(app.click(labels.remove).disabled, false);
+        assert.equal(app.document.querySelectorAll('tbody input:checked').length, 1);
+        assert.equal(app.calls.length, 0);
+    }
+});
+
+test('localized history search supports validation, progress and results without translating item names', async t => {
+    for (const [language, labels] of [
+        ['schinese', { start: '开始搜索', clear: '清除搜索', name: '按物品名称搜索历史记录', from: '起始日期', invalid: '请输入物品名称', completed: '搜索完成', purchased: '已购入' }],
+        ['russian', { start: 'Начать поиск', clear: 'Очистить поиск', name: 'Поиск в истории по названию предмета', from: 'Дата начала', invalid: 'Введите название предмета', completed: 'Поиск завершён', purchased: 'Куплено' }]
+    ]) {
+        const events = [historyEvent(1, Date.UTC(2026, 10, 20), 'Select All'), historyEvent(2, Date.UTC(2026, 10, 19), 'Other')];
+        const app = boot(t, 'history', [], historyService(events), 'en-US', { ssrLanguage: language });
+        await waitFor(() => !app.document.querySelector('input[type=search]').disabled);
+        const initial = app.calls.length;
+        app.click(labels.start);
+        assert.match(app.document.querySelector('[role=status]').textContent, new RegExp(labels.invalid));
+        assert.equal(app.calls.length, initial);
+        app.document.querySelector(`[aria-label="${labels.name}"]`).value = 'Select All';
+        app.document.querySelector(`[aria-label="${labels.from}"]`).value = '2026-11-01';
+        app.click(labels.start);
+        await waitFor(() => app.document.querySelector('[role=status]').textContent.startsWith(labels.completed));
+        assert.equal(app.document.querySelector('tbody a').textContent, 'Select All');
+        assert.equal(app.document.querySelectorAll('tbody tr').length, 1);
+        assert.match(app.document.querySelector('tbody').textContent, new RegExp(labels.purchased));
+        assert.doesNotMatch(app.document.querySelector('#see-modern-market').textContent, /\{p\d+\}/);
+        app.click(labels.clear);
+    }
+});
+
+test('localized repricing uses the same native mutation payload and localized currency amounts', async t => {
+    for (const [language, labels] of [
+        ['schinese', { select: '全选', reprice: '重新上架选中物品', ready: '项挂单可提交', apply: '提交改价', updated: '已更新 1 项挂单', locale: 'zh-CN' }],
+        ['russian', { select: 'Выбрать всё', reprice: 'Изменить цены выбранных', ready: 'Готово лотов: 1 / 1', apply: 'Применить цены', updated: 'Обновлено лотов: 1', locale: 'ru-RU' }]
+    ]) {
+        let writes = 0;
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('9007199254740993123')])], repriceService(payload => {
+            writes++;
+            assert.deepEqual(payload.mp, ['9007199254740993123', 261, 2029]);
+            return response({ data: { eResult: 1, eUpdateResult: 1 } });
+        }), 'en-US', { ssrLanguage: language });
+        const formatted = new Intl.NumberFormat(labels.locale, { style: 'currency', currency: 'HKD' }).format(3.29);
+        assert.ok(app.rows()[0].textContent.includes(formatted));
+        app.click(labels.select);
+        app.click(labels.reprice);
+        await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes(labels.ready));
+        assert.doesNotMatch(app.document.querySelector('.see-reprice-dialog').textContent, /\{p\d+\}/);
+        app.click(labels.apply);
+        await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes(labels.updated));
+        assert.equal(writes, 1);
+    }
+});
+
+test('localized order-book controls keep native table markup and continue expanding', async t => {
+    for (const [language, label] of [['schinese', '再显示 5 档'], ['russian', 'Ещё 5 уровней цен']]) {
+        const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => response({ data: { success: true, data: bookData() } }), 'en-US', { ssrLanguage: language, html: nativeBook('sell') + nativeBook('buy') });
+        const table = app.document.querySelector('#native-buy');
+        const original = table.tBodies[0].rows[0].outerHTML;
+        await waitFor(() => table.querySelector('[data-see-book-controls] button'));
+        assert.equal(table.querySelector('button').textContent, label);
+        table.querySelector('button').click();
+        assert.equal(priceLevelCount(table), 10);
+        assert.equal(table.tBodies[0].rows[0].outerHTML, original);
+        assert.equal(table.className, 'native-orders');
+    }
+});
+
+test('the embedded icon matches the self-contained SVG source', async () => {
+    const icon = (await readFile(new URL('../assets/icon.svg', import.meta.url), 'utf8')).replace(/\r\n/g, '\n').trim();
+    const data = source.match(/^\/\/ @icon\s+data:image\/svg\+xml,(.+)$/m)?.[1];
+    assert.equal(decodeURIComponent(data), icon);
+    const svg = new JSDOM(icon, { contentType: 'image/svg+xml' });
+    assert.equal(svg.window.document.querySelector('parsererror'), null);
+    assert.equal(svg.window.document.querySelector('path').getAttribute('fill'), 'url(#gold)');
+    assert.equal(svg.window.document.querySelector('script, image, foreignObject'), null);
+    svg.window.close();
+});
+
+test('Russian compatible listing dates sort with abbreviated and inflected month names', async t => {
+    const html = legacyRow('nov', 'November').replace('19 Nov', '27 ноя') + legacyRow('may', 'May').replace('19 Nov', '15 мая');
+    const app = boot(t, 'activelistings', [], url => url.pathname === '/market/actions' ? response({}, 429) : response({ success: true, start: 0, total_count: 2, results_html: html }), 'ru-RU', { ssrLanguage: 'russian' });
+    await waitFor(() => app.rows().length === 2);
+    app.click('Дата выставления');
+    assert.deepEqual(app.rows().map(row => row.dataset.id), ['may', 'nov']);
 });

@@ -2,7 +2,7 @@
 
 ### Upgraded fork: the new Steam Market
 
-This fork supports Steam's React market while retaining the legacy inventory and trade-offer implementation. All enhanced market controls, dialogs, messages and date formatting use English; item names and descriptions retain the text supplied by Steam.
+This fork supports Steam's React market, inventory and trade offers. Script controls, dialogs, messages, settings and market date/currency formatting automatically follow Steam's language: English, Simplified Chinese or Russian. Other languages default to English. Item names, descriptions and native Steam interface text retain the content supplied by Steam.
 
 * [Sell listings](https://steamcommunity.com/market/activelistings), [buy orders](https://steamcommunity.com/market/buyorders) and [market history](https://steamcommunity.com/market/history) use compact tables with **32 × 32 px item thumbnails**. Images fit within the existing row height and load lazily.
 * Sell listings and buy orders support ascending/descending sorting by name, date (remaining quantity for buy orders), asking/bid price and typical price.
@@ -36,6 +36,20 @@ Maintained by **TinyKiecoo**, based on [Steam Economy Enhancer by Nuklon](https:
 
 The userscript name and namespace changed in v7.5.0. Disable the old `Steam Economy Enhancer` script and enable only `Steam-Economy-Enhancer-Upgraded` to avoid running both versions.
 
+#### Changes in v7.7.0
+
+- Add self-contained English, Simplified Chinese and Russian translations across market tables/history search/price previews, inventory actions/settings/logs, and trade-offer statistics. Language detection uses Steam's SSR or legacy language setting, with URL, page-language and cookie fallbacks. Changing Steam's language takes effect when the page reloads.
+- Default to English for missing or unsupported languages. Steam `english`, `schinese` and `russian` settings and their page locale aliases are supported. Native order-book markup and styling remain intact; only script-added controls and rows are localized.
+- Use a graphite and champagne-gold SVG icon, embedded in the userscript so installation needs no separate image download.
+- Remove the obsolete automatic-overpriced-relisting and minimum-price-check settings, their persistence/defaults, unused market CSS/helpers and the skipped-price background marker. Overpriced/underpriced classification, price coloring and selection controls are removed. Inventory selling price limits and its working pricing options remain available.
+
+| Steam language | Script language |
+| --- | --- |
+| English | English |
+| 简体中文 | 简体中文 |
+| Русский | Русский |
+| Other / unavailable | English |
+
 #### Changes in v7.6.1
 
 Item-detail buy/sell order books keep Steam's original tables, headers, typography, colors and spacing. Expansion adds rows with the native row/cell markup and a bottom control, retaining five-level expansion and live updates. The generic script table theme no longer applies to these order books.
@@ -48,7 +62,7 @@ Item-detail buy/sell order books keep Steam's original tables, headers, typograp
 - Personal orders on item detail pages use the same compact tables, search, sorting, selection, totals, bulk cancellation and sell-price preview as the market overview. Only orders belonging to that item appear.
 - Inventory **批量出售物品** retains Steam multisell behavior and stays visible. It is disabled without a selection, with the requested tooltip. Settings include individual visibility checkboxes for the other nine inventory action types, including game-specific actions. Hidden actions stay hidden when selection changes.
 
-The requested button labels and disabled tooltip use Chinese; other script controls remain English. Select 5 / Select 25 are removed. Validation uses synthetic accounts, wallet rules and market data; no real listings were changed or cancelled.
+From v7.7.0, these labels and the disabled tooltip follow Steam's language. Select 5 / Select 25 are removed. Validation uses synthetic accounts, wallet rules and market data; no real listings were changed or cancelled.
 
 #### Other market features: compatibility audit (updated 2026-11-27)
 
@@ -56,9 +70,8 @@ This audit combines source inspection with authenticated, read-only checks of th
 
 | Feature | Current status / evidence |
 | --- | --- |
-| Overpriced/underpriced detection and price colors | Unavailable: the old pricing worker depended on legacy listing rows; the new table displays Steam's supplied prices. |
+| Overpriced/underpriced detection and price colors | Removed, including obsolete settings and related selection controls. |
 | Reprice selected listings | Available in v7.6.0 using the native direct price-change action with a lowest-ask preview. |
-| Select/reprice overpriced items automatically | Unavailable: automated pricing and overpriced detection have not been ported. |
 | Select 5 / Select 25 | Removed as requested; Select All, Deselect All and individual selection remain. |
 | Buyer/seller monetary totals for listings and buy orders | Available in v7.6.0, including quantities and separate currency groups. |
 | Market settings shortcut near Install Steam | Unavailable: the old global-action-menu anchor is absent. The existing inventory settings entry remains. |
@@ -69,11 +82,10 @@ The replaced legacy listing/history engine, its unused cancellation wrapper, mar
 
 A free userscript to enhance your Steam Inventory, Steam Market and Steam Tradeoffers.
 
-The original upstream market features included the following (see the compatibility audit above for current support):
+Current market features include:
 
-*    Detect overpriced and underpriced items.
 *    Select multiple items and remove them at once.
-*    (Automatically) relist overpriced items.
+*    Reprice selected listings against the current lowest ask, with a price preview.
 *    Sort and search items by name, price or date.
 *    Total price for listings, as seller and buyer.
 
