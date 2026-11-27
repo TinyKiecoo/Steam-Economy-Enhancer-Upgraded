@@ -33,6 +33,10 @@ export default [
     }
   },
   {
+    files: ['tests/**/*.mjs'],
+    languageOptions: { globals: globals.node }
+  },
+  {
     files: ['*.user.js'],
     plugins: {
       userscripts: {
