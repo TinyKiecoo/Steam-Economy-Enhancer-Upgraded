@@ -36,27 +36,39 @@ Maintained by **TinyKiecoo**, based on [Steam Economy Enhancer by Nuklon](https:
 
 The userscript name and namespace changed in v7.5.0. Disable the old `Steam Economy Enhancer` script and enable only `Steam-Economy-Enhancer-Upgraded` to avoid running both versions.
 
-#### Other market features: compatibility audit (2026-11-26)
+#### Changes in v7.6.0
 
-This audit combines source inspection with authenticated, read-only checks of the market home and item pages. Both use the new SSR UI and no longer expose the legacy listing tables, listing manager or settings anchor. The following upstream enhancements have **not been ported**; they were already unreachable on the new market, and this change does not restore them.
+- Sell listings show buyer-paid and seller-received totals. Buy orders show the commitment for their remaining quantities. Filtered and selected subtotals update with the table; different currencies remain separate.
+- The **重新上架选中物品** action prepares a per-listing preview against the current lowest ask, using Steam's current fee and wallet rounding rules. Applying it calls `UpdateSellListingPrice` directly. It skips unchanged prices and pending confirmations, stops on a failed submission, and never cancels/recreates listings. Previews expire after one minute; Steam mobile/email confirmation may still be required.
+- Item detail pages show five price levels per side initially. Each bottom button reveals five more, independently for buys and sells, retaining expansion across Steam's live updates. The script observes native order-book responses and makes one initial read, without adding a polling loop.
+- Personal orders on item detail pages use the same compact tables, search, sorting, selection, totals, bulk cancellation and sell-price preview as the market overview. Only orders belonging to that item appear.
+- Inventory **批量出售物品** retains Steam multisell behavior and stays visible. It is disabled without a selection, with the requested tooltip. Settings include individual visibility checkboxes for the other nine inventory action types, including game-specific actions. Hidden actions stay hidden when selection changes.
+
+The requested button labels and disabled tooltip use Chinese; other script controls remain English. Select 5 / Select 25 are removed. Validation uses synthetic accounts, wallet rules and market data; no real listings were changed or cancelled.
+
+#### Other market features: compatibility audit (updated 2026-11-27)
+
+This audit combines source inspection with authenticated, read-only checks of the market home and item pages. Both use the new SSR UI and no longer expose the legacy listing tables, listing manager or settings anchor.
 
 | Feature | Current status / evidence |
 | --- | --- |
 | Overpriced/underpriced detection and price colors | Unavailable: the old pricing worker depended on legacy listing rows; the new table displays Steam's supplied prices. |
-| Select/relist overpriced items, relist selected, automatic relisting | Unavailable: the legacy queue and buttons do not run on SSR pages. The existing inventory settings data is retained. |
-| Select 5 / Select 25 / Select overpriced | Not ported; the new table provides Select All, Deselect All and individual selection. |
-| Combined buyer/seller monetary totals for listings and buy orders | Not ported; the current summary counts rows and selections. |
+| Reprice selected listings | Available in v7.6.0 using the native direct price-change action with a lowest-ask preview. |
+| Select/reprice overpriced items automatically | Unavailable: automated pricing and overpriced detection have not been ported. |
+| Select 5 / Select 25 | Removed as requested; Select All, Deselect All and individual selection remain. |
+| Buyer/seller monetary totals for listings and buy orders | Available in v7.6.0, including quantities and separate currency groups. |
 | Market settings shortcut near Install Steam | Unavailable: the old global-action-menu anchor is absent. The existing inventory settings entry remains. |
-| Enhancements to personal orders on item-detail pages | Not ported: the new table mounts only on active listings, buy orders and history. Steam's native item page remains available. |
+| Personal orders on item detail pages | Available in v7.6.0; the original Steam panel can be restored. |
+| Expandable item order-book tables | Available in v7.6.0; each side expands by five price levels. |
 
-The replaced legacy listing/history engine, its unused cancellation wrapper, market-only CSS and initialization paths have been deleted, together with its List.js, Luxon and checkboxes.js dependencies. Inventory and shared inventory/trade helpers retain their prior implementation apart from the displayed product name. No real price changes, removals or cancellations were executed; live submission behavior is outside this read-only audit.
+The replaced legacy listing/history engine, its unused cancellation wrapper, market-only CSS and initialization paths have been deleted, together with its List.js, Luxon and checkboxes.js dependencies. Inventory multisell behavior is preserved with configurable action visibility. No real price changes, removals or cancellations were executed; live submission behavior is outside this read-only audit. Some live page/action reads returned HTTP 429 during the latest work; automated tests cover those failures and preserve the native order-book tables when the initial read fails.
 
 A free userscript to enhance your Steam Inventory, Steam Market and Steam Tradeoffers.
 
 The original upstream market features included the following (see the compatibility audit above for current support):
 
 *    Detect overpriced and underpriced items.
-*    Select 5/25/all (overpriced) items and remove them at once.
+*    Select multiple items and remove them at once.
 *    (Automatically) relist overpriced items.
 *    Sort and search items by name, price or date.
 *    Total price for listings, as seller and buyer.

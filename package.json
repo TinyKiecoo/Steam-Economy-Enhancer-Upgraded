@@ -11,9 +11,11 @@
   "devDependencies": {
     "@eslint/js": "^9.5.0",
     "@stylistic/eslint-plugin": "^2.3.0",
+    "async": "^3.2.6",
     "eslint": "^9.5.0",
     "eslint-plugin-userscripts": "^0.5.3",
     "globals": "^15.6.0",
+    "jquery": "^3.7.1",
     "jsdom": "^29.1.1"
   }
 }

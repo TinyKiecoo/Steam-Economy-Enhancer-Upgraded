@@ -4,7 +4,7 @@
 // @namespace    https://github.com/TinyKiecoo
 // @author       TinyKiecoo
 // @license      MIT
-// @version      7.5.0
+// @version      7.6.0
 // @description  Enhances the Steam Inventory and Steam Market.
 // @match        https://steamcommunity.com/id/*/inventory*
 // @match        https://steamcommunity.com/profiles/*/inventory*
@@ -172,6 +172,7 @@
                 price,
                 priceText: money(price, currency),
                 seller,
+                pendingConfirmation: data.price_update_pending_confirmation === true || Number(data.price_update_pending_confirmation) === 1,
                 sellerText: buy ? '' : money(seller, currency),
                 typical: entry.recent_price == null ? null : Number(entry.recent_price),
                 typicalText: entry.recent_price == null ? '—' : money(entry.recent_price, entry.recent_price_currency),
@@ -305,7 +306,7 @@
                 }));
                 const publish = () => {
                     if (!state.controller.signal.aborted) {
-                        state.rows = Array.from(rows.values());
+                        state.rows = Array.from(rows.values()).filter(row => !state.item || matchesItem(row, state.item));
                         renderOrders(state);
                     }
                 };
@@ -387,8 +388,9 @@
                 if (state.controller.signal.aborted) {
                     return;
                 }
-                state.rows = Array.from(rows.values());
-                state.selected = new Set([...state.selected].filter(id => rows.has(id)));
+                state.rows = Array.from(rows.values()).filter(row => !state.item || matchesItem(row, state.item));
+                const available = new Set(state.rows.map(row => row.id));
+                state.selected = new Set([...state.selected].filter(id => available.has(id)));
                 state.loading = false;
                 renderOrders(state);
             } catch (error) {
@@ -521,7 +523,36 @@
             state.select.disabled = state.busy || !rows.length;
             state.deselect.disabled = state.busy || !state.selected.size;
             state.refresh.disabled = state.loading || state.busy;
+            if (state.reprice) {
+                state.reprice.disabled = state.loading || state.busy || !state.selected.size;
+            }
             state.count.textContent = `Showing ${rows.length} / ${state.rows.length} items · ${state.selected.size} selected`;
+            renderTotals(state, rows);
+        }
+
+        function renderTotals(state, visible) {
+            const total = rows => {
+                const groups = new Map();
+                for (const row of rows) {
+                    const currency = row.currency == null ? null : Number(row.currency) >= 2000 ? Number(row.currency) - 2000 : Number(row.currency);
+                    const value = groups.get(currency) || { buyer: 0, seller: 0, missing: false };
+                    value.buyer += row.price * row.quantity;
+                    const seller = row.seller ?? (row.sellerText ? numberFromPrice(row.sellerText) : null);
+                    value.seller += (seller || 0) * row.quantity;
+                    value.missing ||= seller == null;
+                    groups.set(currency, value);
+                }
+                return [...groups].map(([currency, value]) => state.kind === 'buyorders'
+                    ? money(value.buyer, currency)
+                    : `${money(value.buyer, currency)} buyer pays / ${value.missing ? 'unavailable' : money(value.seller, currency)} you receive`).join(' · ') || '—';
+            };
+            state.totals.replaceChildren(element('div', `${state.kind === 'buyorders' ? 'Buy order commitment' : 'Sell listing total'}${state.loading ? ' (loaded so far)' : ''}: ${total(state.rows)}`));
+            if (visible.length !== state.rows.length) {
+                state.totals.append(element('div', `Filtered: ${total(visible)}`));
+            }
+            if (state.selected.size) {
+                state.totals.append(element('div', `Selected: ${total(state.rows.filter(row => state.selected.has(row.id)))}`));
+            }
         }
 
         async function cancelOrder(state, row) {
@@ -578,6 +609,197 @@
             }
         }
 
+        async function updateListingPrice(state, row, cents) {
+            const currency = Number(row.currency) < 2000 ? Number(row.currency) + 2000 : Number(row.currency);
+            const result = await jsonRequest('/market/actions', state, {
+                method: 'POST',
+                headers: { 'x-valve-request-type': 'mutationAction', 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify({ m: 'UpdateSellListingPrice', mp: [row.id, cents, currency] })
+            });
+            const data = result.data;
+            if (data?.eResult !== 1 || data.eUpdateResult !== 1) {
+                throw new Error(`Steam did not confirm the price change (${data?.eUpdateResult ?? data?.eResult ?? 'no result'}).`);
+            }
+            return data;
+        }
+
+        async function loadOrderBook(state, appid, name, signal) {
+            const params = new URLSearchParams({ q: 'Load', qp: JSON.stringify([Number(appid), name]) });
+            const result = await jsonRequest(`/market/orderbook?${params}`, state, { signal });
+            const book = result.data?.success ? result.data.data : null;
+            if (!book || !Array.isArray(book.rgCompactSellOrders) || !Array.isArray(book.rgCompactBuyOrders)) {
+                throw new Error('Steam did not return a complete order book.');
+            }
+            return book;
+        }
+
+        function listingQuote(seller, fees, wallet) {
+            const minimum = Number(wallet.wallet_market_minimum);
+            const increment = Number(wallet.wallet_currency_increment);
+            const base = seller <= minimum ? minimum : Math.ceil(seller / increment) * increment;
+            const fee = rule => {
+                if (Number(rule.fee_rate ?? 0) <= 0.0000001) {
+                    return 0;
+                }
+                const amount = Math.max(minimum, Math.floor(Math.trunc(base * Number(rule.fee_rate ?? 0)) / increment + 0.5) * increment);
+                return Number(rule.fee_cap) > 0 ? Math.min(Number(rule.fee_cap), amount) : amount;
+            };
+            return { seller: base, price: base + fee(fees.steam_fee) + fee(fees.publisher_fee) };
+        }
+
+        function quoteAtAsk(ask, fees, wallet) {
+            let low = 1;
+            let high = ask;
+            let quote;
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const candidate = listingQuote(mid, fees, wallet);
+                if (candidate.price <= ask) {
+                    quote = candidate;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            return quote;
+        }
+
+        async function repriceOrders(state) {
+            const rows = state.rows.filter(row => state.selected.has(row.id));
+            if (state.loading || state.busy || !rows.length) {
+                return;
+            }
+            state.busy = true;
+            renderOrders(state);
+            const controller = new AbortController();
+            const dialog = element('dialog', null, 'see-market-dialog see-reprice-dialog');
+            dialog.append(element('h3', 'Reprice selected listings'));
+            dialog.append(element('p', 'Use the current lowest sell price per item. Asking prices include Steam and publisher fees; rounding may leave the buyer price slightly below the target. All selected items, including filtered-out items, appear here.'));
+            const message = element('p', 'Loading fresh prices and fee rules…', 'see-status');
+            dialog.append(message);
+            const preview = makeTable({ host: dialog });
+            const header = preview.createTHead().insertRow();
+            ['Item', 'Current ask', 'Lowest ask', 'New ask', 'You receive', 'Status'].forEach(text => header.append(element('th', text)));
+            const body = preview.createTBody();
+            const controls = element('div', null, 'see-toolbar');
+            dialog.append(controls);
+            let submitting = false;
+            let preparedAt;
+            const prepared = [];
+            const save = button('Apply price changes', async () => {
+                if (Date.now() - preparedAt > 60000) {
+                    save.disabled = true;
+                    message.textContent = 'This preview is over one minute old. Close it and prepare a fresh preview.';
+                    return;
+                }
+                if (!unsafeWindow.confirm(`Directly update ${prepared.length} listing prices shown in this preview?`)) {
+                    return;
+                }
+                submitting = true;
+                save.disabled = true;
+                close.disabled = true;
+                let completed = 0;
+                let confirmations = 0;
+                try {
+                    for (const item of prepared) {
+                        item.status.textContent = 'Submitting…';
+                        const result = await updateListingPrice(state, item.row, item.quote.seller);
+                        completed++;
+                        if (result.bRequiresConfirmation) {
+                            confirmations++;
+                            item.row.pendingConfirmation = true;
+                            item.status.textContent = 'Confirm in Steam app / email';
+                        } else {
+                            const quote = listingQuote(Number(result.nPrice ?? item.quote.seller), item.fees, item.wallet);
+                            Object.assign(item.row, quote, { priceText: money(quote.price, item.row.currency), sellerText: money(quote.seller, item.row.currency) });
+                            item.status.textContent = 'Updated';
+                        }
+                        renderOrders(state);
+                        if (completed < prepared.length) {
+                            await pause(1000, state.controller.signal);
+                        }
+                    }
+                    message.textContent = `Updated ${completed} listings. ${confirmations} require Steam confirmation. Refresh to verify final prices.`;
+                } catch (error) {
+                    message.textContent = `Updated ${completed} listings; stopped: ${error.message} Refresh to verify results before trying again.`;
+                } finally {
+                    submitting = false;
+                    close.disabled = false;
+                }
+            }, controls);
+            save.disabled = true;
+            const close = button('Close', () => dialog.close(), controls);
+            dialog.addEventListener('cancel', event => {
+                if (submitting) {
+                    event.preventDefault();
+                }
+            });
+            dialog.addEventListener('close', () => {
+                controller.abort();
+                dialog.remove();
+                state.busy = false;
+                if (!state.controller.signal.aborted) {
+                    renderOrders(state);
+                }
+            }, { once: true });
+            state.host.append(dialog);
+            dialog.showModal();
+            try {
+                const wallet = (await jsonRequest('/market/userbillinginfo', state, { signal: controller.signal })).wallet_info;
+                if (!wallet || !Number.isSafeInteger(Number(wallet.wallet_market_minimum)) || Number(wallet.wallet_market_minimum) < 1 || !Number.isSafeInteger(Number(wallet.wallet_currency_increment)) || Number(wallet.wallet_currency_increment) < 1) {
+                    throw new Error('Steam wallet rounding rules are unavailable.');
+                }
+                const cache = new Map();
+                const feeCache = new Map();
+                for (const row of rows) {
+                    if (controller.signal.aborted) {
+                        return;
+                    }
+                    const tr = body.insertRow();
+                    tr.append(element('td', row.name), element('td', row.priceText));
+                    const currency = Number(row.currency) >= 2000 ? Number(row.currency) - 2000 : Number(row.currency);
+                    const appid = Number(row.description.appid);
+                    const name = row.description.market_hash_name;
+                    if (!currency || !appid || !name || Number(wallet.wallet_currency) !== currency) {
+                        throw new Error('Cannot determine the item identity or matching wallet currency.');
+                    }
+                    const key = JSON.stringify([appid, name, currency]);
+                    if (!cache.has(key)) {
+                        const book = await loadOrderBook(state, appid, name, controller.signal);
+                        if (Number(book.eCurrency) !== currency) {
+                            throw new Error('Order book currency does not match the listing.');
+                        }
+                        const feeKey = JSON.stringify([appid, currency]);
+                        if (!feeCache.has(feeKey)) {
+                            const params = new URLSearchParams({ q: 'QueryFeeStructure', qp: JSON.stringify([appid, currency]) });
+                            const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' }, signal: controller.signal });
+                            feeCache.set(feeKey, result.data);
+                        }
+                        const fees = feeCache.get(feeKey);
+                        if (![fees?.steam_fee, fees?.publisher_fee].every(fee => fee && Number.isFinite(Number(fee.fee_rate ?? 0)) && Number(fee.fee_rate ?? 0) >= 0 && (fee.fee_cap == null || Number.isFinite(Number(fee.fee_cap))))) {
+                            throw new Error('Steam fee rules are unavailable.');
+                        }
+                        cache.set(key, { ask: Number(book.amtMinSellOrder), fees });
+                        await pause(1000, controller.signal);
+                    }
+                    const { ask, fees } = cache.get(key);
+                    const quote = Number.isSafeInteger(ask) && ask > 0 ? quoteAtAsk(ask, fees, wallet) : null;
+                    const status = element('td', row.pendingConfirmation ? 'Pending confirmation; skipped' : !quote ? 'No valid lowest ask; skipped' : quote.seller === row.seller ? 'Unchanged; skipped' : 'Ready');
+                    tr.append(element('td', ask > 0 ? money(ask, currency) : '—'), element('td', quote ? money(quote.price, currency) : '—'), element('td', quote ? money(quote.seller, currency) : '—'), status);
+                    if (quote && !row.pendingConfirmation && quote.seller !== row.seller) {
+                        prepared.push({ row, quote, fees, wallet, status });
+                    }
+                }
+                preparedAt = Date.now();
+                message.textContent = `${prepared.length} / ${rows.length} listings ready. Review the prices before applying. Prices are a snapshot taken while preparing this preview.`;
+                save.disabled = !prepared.length;
+            } catch (error) {
+                if (!controller.signal.aborted && !state.controller.signal.aborted) {
+                    message.textContent = `Could not prepare prices: ${error.message}`;
+                }
+            }
+        }
+
         function modifyOrder(state, row) {
             if (state.busy || state.loading) {
                 return;
@@ -615,16 +837,7 @@
                 remove.disabled = true;
                 close.disabled = true;
                 try {
-                    const currency = Number(row.currency) < 2000 ? Number(row.currency) + 2000 : Number(row.currency);
-                    const result = await jsonRequest('/market/actions', state, {
-                        method: 'POST',
-                        headers: { 'x-valve-request-type': 'mutationAction', 'Content-Type': 'application/json; charset=utf-8' },
-                        body: JSON.stringify({ m: 'UpdateSellListingPrice', mp: [row.id, cents, currency] })
-                    });
-                    const data = result.data;
-                    if (data?.eResult !== 1 || data.eUpdateResult !== 1) {
-                        throw new Error(`Steam did not confirm the price change (${data?.eUpdateResult ?? data?.eResult ?? 'no result'}).`);
-                    }
+                    const data = await updateListingPrice(state, row, cents);
                     message.textContent = data.bRequiresConfirmation ? 'Submitted. Confirm in the Steam mobile app or by email, then refresh the list.' : 'Price updated. Refresh the list to see the final Steam price.';
                 } catch (error) {
                     message.textContent = `${error.message} Refresh to verify the result before trying again.`;
@@ -650,6 +863,10 @@
             state.search.setAttribute('aria-label', 'Search all item information');
             state.search.addEventListener('input', () => renderOrders(state));
             state.remove = button(state.kind === 'buyorders' ? 'Cancel selected' : 'Remove selected', () => removeOrders(state, state.rows.filter(row => state.selected.has(row.id))), toolbar);
+            if (state.kind !== 'buyorders') {
+                state.reprice = button('重新上架选中物品', () => repriceOrders(state), toolbar);
+                state.reprice.title = 'Reprice selected listings to the current lowest sell price';
+            }
             const select = checked => {
                 if (checked) {
                     matches(state).forEach(row => state.selected.add(row.id));
@@ -663,7 +880,9 @@
             state.refresh = button('Refresh', () => loadOrders(state, true), toolbar);
             toolbar.append(state.search);
             state.count = element('p', '', 'see-status');
-            state.host.append(toolbar, state.count);
+            state.totals = element('div', '', 'see-totals');
+            state.totals.setAttribute('aria-live', 'polite');
+            state.host.append(state.totals, toolbar, state.count);
             const table = makeTable(state);
             const head = table.createTHead().insertRow();
             const selection = element('th');
@@ -1096,6 +1315,10 @@
                 view.historySearchRun?.controller.abort();
                 view.controller.abort();
                 view.host.remove();
+                view.books?.forEach(book => book.host.remove());
+                if (view.restoreFetch) {
+                    view.restoreFetch();
+                }
                 view = null;
             }
             document.querySelectorAll('[data-see-native-market]').forEach(node => node.removeAttribute('data-see-native-market'));
@@ -1105,9 +1328,17 @@
             const path = location.pathname.replace(/\/+$/, '');
             const kind = path.match(/^\/market\/(activelistings|buyorders|history)$/)?.[1];
             if (view?.path === path && view.host.isConnected) {
+                if (view.item) {
+                    attachItemTables(view);
+                }
                 return;
             }
             cleanup();
+            const itemPath = path.match(/^\/market\/listings\/(\d+)\/([^/]+)(?:\/[^/]+)?$/);
+            if (itemPath && suppressedPath !== path) {
+                mountItemPage(path, Number(itemPath[1]), decodeURIComponent(itemPath[2]));
+                return;
+            }
             if (!kind || suppressedPath === path) {
                 return;
             }
@@ -1143,6 +1374,193 @@
             host.append(state.status);
         }
 
+        function matchesItem(row, item) {
+            const path = new URL(row.href, location.origin).pathname;
+            return Number(row.description.appid) === item.appid && [row.description.market_hash_name, row.description.market_bucket_group_id].includes(item.name)
+                || path === `/market/listings/${item.appid}/${encodeURIComponent(item.name)}`;
+        }
+
+        function itemLoaderData() {
+            try {
+                return (unsafeWindow.SSR?.loaderData || []).map(data => typeof data === 'string' ? JSON.parse(data) : data).find(data => data?.myOrders) || {};
+            } catch {
+                return {};
+            }
+        }
+
+        function renderItemBook(state, book) {
+            const data = state.orderBook;
+            if (!data) {
+                return;
+            }
+            const compact = data[book.side === 'sell' ? 'rgCompactSellOrders' : 'rgCompactBuyOrders'];
+            const levels = [];
+            for (let i = 0; i + 1 < compact.length; i += 2) {
+                levels.push({ price: Number(compact[i]), quantity: Number(compact[i + 1]) });
+            }
+            book.body.replaceChildren();
+            for (const level of levels.slice(0, book.depth)) {
+                const tr = book.body.insertRow();
+                tr.append(element('td', money(level.price, data.eCurrency)), element('td', level.quantity.toLocaleString(locale)));
+                tr.dataset.price = String(level.price);
+            }
+            const rest = levels.slice(book.depth);
+            if (rest.length) {
+                const tr = book.body.insertRow();
+                tr.className = 'see-book-remainder';
+                tr.append(element('td', `${money(rest[0].price, data.eCurrency)} or ${book.side === 'sell' ? 'more' : 'less'}`), element('td', rest.reduce((sum, level) => sum + level.quantity, 0).toLocaleString(locale)));
+            }
+            book.expand.disabled = levels.length <= book.depth;
+            book.expand.textContent = rest.length ? 'Show 5 more price levels' : 'All price levels shown';
+        }
+
+        function attachItemTables(state) {
+            // Commodity tables are the only native two-column price/quantity tables.
+            const tables = state.orderBook ? [...document.querySelectorAll('table')].filter(table => !table.closest('.see-modern-market') && table.tHead?.rows[0]?.cells.length === 2 && table.tBodies[0]?.rows[0]?.cells.length === 2) : [];
+            const used = new Set();
+            for (const table of tables) {
+                let book = state.books.find(book => book.source === table);
+                if (!book) {
+                    const first = table.tBodies[0].rows[0];
+                    const price = numberFromPrice(first.cells[0].textContent);
+                    const quantity = Number(first.cells[1].textContent.replace(/\D/g, ''));
+                    const sides = ['sell', 'buy'];
+                    const side = sides.find(side => {
+                        const levels = state.orderBook?.[side === 'sell' ? 'rgCompactSellOrders' : 'rgCompactBuyOrders'];
+                        return levels && Number(levels[0]) === price && Number(levels[1]) === quantity;
+                    }) || (tables.length === 2 ? sides[tables.indexOf(table)] : 'buy');
+                    book = state.books.find(book => book.side === side);
+                    if (!book) {
+                        const host = element('div', null, 'see-modern-market see-item-orderbook');
+                        host.dataset.side = side;
+                        const custom = makeTable({ host });
+                        custom.setAttribute('aria-label', side === 'sell' ? 'Sell price levels' : 'Buy price levels');
+                        const head = custom.createTHead().insertRow();
+                        head.append(element('th', 'Price'), element('th', 'Quantity'));
+                        const body = custom.createTBody();
+                        book = { host, body, side, depth: 5 };
+                        const foot = custom.createTFoot().insertRow().insertCell();
+                        foot.colSpan = 2;
+                        book.expand = button('Show 5 more price levels', () => {
+                            book.depth += 5;
+                            renderItemBook(state, book);
+                        }, foot);
+                        state.books.push(book);
+                    }
+                    book.source = table;
+                }
+                used.add(book);
+                // Preserve the native table for React and observe its replacement on updates.
+                table.setAttribute('data-see-native-market', '');
+                if (table.nextElementSibling !== book.host) {
+                    table.after(book.host);
+                }
+                if (state.orderBook) {
+                    renderItemBook(state, book);
+                }
+            }
+            for (const book of state.books) {
+                if (!used.has(book) && !book.source?.isConnected) {
+                    book.host.remove();
+                }
+            }
+            const nativeOwn = [...document.querySelectorAll('[style*="max-content max-content 1fr"]')].find(node => !node.closest('.see-modern-market') && node.querySelector('button'));
+            if (nativeOwn && !state.ownStates.length) {
+                // Client navigation can render new orders without replacing the initial SSR payload.
+                mountItemOrders(state);
+            }
+            if (nativeOwn && state.ownStates.length) {
+                const panel = nativeOwn.parentElement;
+                panel.setAttribute('data-see-native-market', '');
+                if (panel.nextElementSibling !== state.host) {
+                    panel.after(state.host);
+                }
+            }
+        }
+
+        function mountItemOrders(state, myOrders) {
+            const title = element('div', null, 'see-toolbar');
+            title.append(element('strong', 'Your orders for this item'));
+            button('Show original Steam list', () => {
+                suppressedPath = state.path;
+                cleanup();
+            }, title);
+            state.host.append(title);
+            for (const [kind, native] of [['activelistings', myOrders?.rgSellOrders], ['buyorders', myOrders?.rgBuyOrders]]) {
+                if (myOrders && !native?.length) {
+                    continue;
+                }
+                const section = element('section');
+                section.append(element('h3', kind === 'activelistings' ? 'Your sell listings' : 'Your buy orders'));
+                state.host.append(section);
+                const own = { host: section, kind, item: state.item, controller: state.controller, rows: [], selected: new Set(), loading: false, busy: false };
+                own.status = element('div', '', 'see-status');
+                own.status.setAttribute('role', 'status');
+                state.ownStates.push(own);
+                ordersUI(own);
+                section.append(own.status);
+            }
+        }
+
+        function mountItemPage(path, appid, name) {
+            const anchor = document.querySelector('main') || document.querySelector('body > div');
+            if (!anchor) {
+                return;
+            }
+            const host = element('section', null, 'see-modern-market');
+            host.id = 'see-modern-market';
+            anchor.prepend(host);
+            const state = { path, host, item: { appid, name }, controller: new AbortController(), books: [], ownStates: [] };
+            view = state;
+            const receive = result => {
+                const book = result?.data?.success ? result.data.data : null;
+                if (!state.controller.signal.aborted && book && Array.isArray(book.rgCompactSellOrders) && Array.isArray(book.rgCompactBuyOrders)) {
+                    state.orderBook = book;
+                    state.bookError?.remove();
+                    attachItemTables(state);
+                }
+            };
+            // Reuse Steam's live order-book responses without adding a second polling loop.
+            const originalFetch = unsafeWindow.fetch;
+            const observeFetch = function (...args) {
+                const promise = originalFetch.apply(this, args);
+                try {
+                    const url = new URL(typeof args[0] === 'string' || args[0] instanceof URL ? args[0] : args[0].url, location.origin);
+                    const query = JSON.parse(url.searchParams.get('qp') || 'null');
+                    if (url.origin === location.origin && url.pathname === '/market/orderbook' && url.searchParams.get('q') === 'Load' && Number(query?.[0]) === appid && query?.[1] === name) {
+                        promise.then(response => response.ok && response.clone().json().then(receive)).catch(() => {});
+                    }
+                } catch {
+                    // Unrelated fetches keep their original behavior.
+                }
+                return promise;
+            };
+            unsafeWindow.fetch = observeFetch;
+            state.restoreFetch = () => {
+                if (unsafeWindow.fetch === observeFetch) {
+                    unsafeWindow.fetch = originalFetch;
+                }
+            };
+            const loader = itemLoaderData();
+            const myOrders = loader.myOrders;
+            if (myOrders?.rgSellOrders?.length || myOrders?.rgBuyOrders?.length) {
+                mountItemOrders(state, myOrders);
+            }
+            attachItemTables(state);
+            loadOrderBook(state, appid, name).then(book => receive({ data: { success: true, data: book } })).catch(error => {
+                if (!state.controller.signal.aborted && !state.orderBook) {
+                    // Keep working native tables visible when the initial read fails.
+                    state.books.forEach(book => {
+                        book.source?.removeAttribute('data-see-native-market');
+                        book.host.remove();
+                    });
+                    state.books = [];
+                    state.bookError = element('p', `Order book expansion unavailable: ${error.message}`, 'see-status');
+                    host.append(state.bookError);
+                }
+            });
+        }
+
         injectCss(`
             [data-see-native-market] { display:none !important; }
             .see-modern-market { color:#d6d7d8; margin-top:16px; font:14px/1.4 Arial,sans-serif; }
@@ -1174,8 +1592,14 @@
             .see-modern-market [aria-current=page] { background:#42738c; opacity:1 !important; }
             .see-status { color:#a9bac9; margin:8px 0; }
             .see-status button { margin-left:8px; }
+            .see-totals { padding:10px; border:1px solid #344554; background:#192a39; font-variant-numeric:tabular-nums; }
+            .see-item-orderbook { margin:0; width:100%; }
+            .see-item-orderbook td, .see-item-orderbook th { text-align:right; }
+            .see-item-orderbook tfoot td { padding:0; }
+            .see-item-orderbook tfoot button { width:100%; border:0; border-radius:0; padding:7px 10px; }
             .see-market-dialog { color:#e8edf2; background:#192a39; border:1px solid #526779; border-radius:6px; max-width:560px; padding:24px; }
             .see-market-dialog::backdrop { background:#000a; }
+            .see-reprice-dialog { max-width:min(1100px, 90vw); max-height:85vh; }
             .see-market-dialog input { display:block; width:150px !important; margin-top:8px; }
             .see-history-search label { display:flex; flex-direction:column; gap:4px; }
             .see-history-search label:first-child { flex:1; min-width:220px; }
@@ -1183,7 +1607,7 @@
             .see-history-search button { align-self:end; }
         `);
         const observer = new MutationObserver(records => {
-            if (records.every(record => view?.host.contains(record.target))) {
+            if (records.every(record => record.target.nodeType === 1 && record.target.closest('.see-modern-market'))) {
                 return;
             }
             clearTimeout(scheduled);
@@ -1431,6 +1855,17 @@
     const SETTING_QUICK_SELL_BUTTONS = 'SETTING_QUICK_SELL_BUTTONS';
     const SETTING_LAST_CACHE = 'SETTING_LAST_CACHE';
     const SETTING_RELIST_AUTOMATICALLY = 'SETTING_RELIST_AUTOMATICALLY';
+    const inventoryButtonSettings = [
+        ['SELL_ALL', '.sell_all', 'Sell all items'],
+        ['SELL_DUPLICATES', '.sell_all_duplicates', 'Sell all duplicate items'],
+        ['SELL_SELECTED', '.sell_selected', 'Sell selected items automatically'],
+        ['SELL_CARDS', '.sell_all_cards', 'Sell all cards'],
+        ['GEM_SELECTED', '.turn_into_gems', 'Turn selected items into gems'],
+        ['UNPACK_ALL', '.unpack_all_booster_packs', 'Unpack all booster packs'],
+        ['UNPACK_SELECTED', '.unpack_selected_booster_packs', 'Unpack selected booster packs'],
+        ['GEM_DUPLICATES', '.gem_all_duplicates', 'Turn all duplicate items into gems'],
+        ['SELL_CRATES', '.sell_all_crates', 'Sell all crates (TF2)']
+    ].map(([name, selector, label]) => ({ key: `SETTING_SHOW_${name}`, selector, label }));
 
     const settingDefaults = {
         SETTING_MIN_NORMAL_PRICE: 0.05,
@@ -1449,15 +1884,22 @@
         SETTING_TRADEOFFER_PRICE_LABELS: 1,
         SETTING_QUICK_SELL_BUTTONS: 1,
         SETTING_LAST_CACHE: 0,
-        SETTING_RELIST_AUTOMATICALLY: 0
+        SETTING_RELIST_AUTOMATICALLY: 0,
+        ...Object.fromEntries(inventoryButtonSettings.map(setting => [setting.key, 1]))
     };
 
     function getSettingWithDefault(name) {
-        return getLocalStorageItem(name) || (name in settingDefaults ? settingDefaults[name] : null);
+        return getLocalStorageItem(name) ?? (name in settingDefaults ? settingDefaults[name] : null);
     }
 
     function setSetting(name, value) {
         setLocalStorageItem(name, value);
+    }
+
+    function applyInventoryButtonSettings() {
+        for (const setting of inventoryButtonSettings) {
+            $(`#inventory_sell_buttons ${setting.selector}`).attr('data-see-inventory-hidden', getSettingWithDefault(setting.key) == 1 ? null : '');
+        }
     }
     //#endregion
 
@@ -2936,11 +3378,14 @@
         function canSellSelectedItemsManually(items) {
             // We have to construct an URL like this
             // https://steamcommunity.com/market/multisell?appid=730&contextid=2&items[]=Falchion%20Case&qty[]=100
+            if (!items.length) {
+                return false;
+            }
             const contextid = items[0].contextid;
             let hasInvalidItem = false;
 
             items.forEach((item) => {
-                if (item.contextid != contextid || item.commodity == false) {
+                if (item.contextid != contextid || item.appid != items[0].appid || item.commodity == false) {
                     hasInvalidItem = true;
                 }
             });
@@ -2950,6 +3395,13 @@
 
         function sellSelectedItemsManually() {
             getInventorySelectedMarketableItems((items) => {
+                if (!items.length) {
+                    return;
+                }
+                if (!canSellSelectedItemsManually(items)) {
+                    unsafeWindow.ShowAlertDialog('Bulk sell', 'Steam multisell requires commodity items from the same inventory.');
+                    return;
+                }
                 // We have to construct an URL like this
                 // https://steamcommunity.com/market/multisell?appid=730&contextid=2&items[]=Falchion%20Case&qty[]=100
 
@@ -3132,6 +3584,9 @@
                 },
                 selected: function () {
                     updateButtons();
+                },
+                unselected: function () {
+                    updateButtons();
                 }
             });
 
@@ -3253,19 +3708,16 @@
 
         // Updates the (selected) sell ... items button.
         function updateSellSelectedButton() {
+            // Keep the mandatory action visible, including while inventory data loads.
+            const manual = $('.sell_manual').show();
+            manual.prop('disabled', !getSelectedItems().length);
+            manual.attr('title', getSelectedItems().length ? '' : '选中至少一件进行批量销售的物品');
             getInventorySelectedMarketableItems((items) => {
                 const selectedItems = items.length;
                 if (items.length == 0) {
                     $('.sell_selected').hide();
-                    $('.sell_manual').hide();
                 } else {
                     $('.sell_selected').show();
-                    if (canSellSelectedItemsManually(items)) {
-                        $('.sell_manual').show();
-                        $('.sell_manual > span').text(`Sell ${selectedItems}${selectedItems == 1 ? ' Item Manual' : ' Items Manual'}`);
-                    } else {
-                        $('.sell_manual').hide();
-                    }
                     $('.sell_selected > span').text(`Sell ${selectedItems}${selectedItems == 1 ? ' Item' : ' Items'}`);
                 }
             });
@@ -3494,7 +3946,7 @@
                 <a class="btn_green_white_innerfade btn_medium_wide sell_all"><span>Sell All Items</span></a>
                 <a class="btn_green_white_innerfade btn_medium_wide sell_all_duplicates"><span>Sell All Duplicate Items</span></a>
                 <a class="btn_green_white_innerfade btn_medium_wide sell_selected" style="display:none"><span>Sell Selected Items</span></a>
-                <a class="btn_green_white_innerfade btn_medium_wide sell_manual" style="display:none"><span>Sell Manually</span></a>
+                <button type="button" class="btn_green_white_innerfade btn_medium_wide sell_manual" disabled title="选中至少一件进行批量销售的物品"><span>批量出售物品</span></button>
             `;
 
             if (showMiscOptions) {
@@ -3549,7 +4001,7 @@
                 $('.sell_selected').on('click', '*', sellSelectedItems);
                 $('.sell_all_duplicates').on('click', '*', sellAllDuplicateItems);
                 $('.gem_all_duplicates').on('click', '*', gemAllDuplicateItems);
-                $('.sell_manual').on('click', '*', sellSelectedItemsManually);
+                $('.sell_manual').on('click', sellSelectedItemsManually);
                 $('.sell_all_cards').on('click', '*', sellAllCards);
                 $('.sell_all_crates').on('click', '*', sellAllCrates);
                 $('.turn_into_gems').on('click', '*', turnSelectedItemsIntoGems);
@@ -3558,6 +4010,10 @@
 
             }
 
+            applyInventoryButtonSettings();
+            if (isOwnInventory) {
+                updateButtons();
+            }
             $('.inventory_rightnav').prepend(reloadButton);
             $('.reload_inventory').on(
                 'click',
@@ -4015,7 +4471,20 @@
             </div>
         </div>`);
 
+        const visibility = $('<fieldset class="see-button-settings"><legend>Inventory action buttons</legend><p>Bulk sell is always available when items are selected.</p></fieldset>');
+        for (const setting of inventoryButtonSettings) {
+            const label = $('<label></label>');
+            $('<input type="checkbox">').attr('id', setting.key).prop('checked', getSettingWithDefault(setting.key) == 1).appendTo(label);
+            label.append(document.createTextNode(` ${setting.label}`));
+            visibility.append(label);
+        }
+        price_options.append(visibility);
+
         unsafeWindow.ShowConfirmDialog('Steam-Economy-Enhancer-Upgraded', price_options).done(() => {
+            for (const setting of inventoryButtonSettings) {
+                setSetting(setting.key, $(`#${setting.key}`, price_options).prop('checked') ? 1 : 0);
+            }
+            applyInventoryButtonSettings();
             setSetting(SETTING_MIN_NORMAL_PRICE, $(`#${SETTING_MIN_NORMAL_PRICE}`, price_options).val());
             setSetting(SETTING_MAX_NORMAL_PRICE, $(`#${SETTING_MAX_NORMAL_PRICE}`, price_options).val());
             setSetting(SETTING_MIN_FOIL_PRICE, $(`#${SETTING_MIN_FOIL_PRICE}`, price_options).val());
@@ -4069,6 +4538,11 @@
         .inventory_item_price { top: 0px;position: absolute;right: 0;background: #3571a5;padding: 2px;color: white; font-size:11px; border: 1px solid #666666;}
 
         .see_inventory_buttons {display:flex;flex-wrap:wrap;gap:10px;align-items:start;}
+        [data-see-inventory-hidden] { display:none !important; }
+        .sell_manual { border:0; padding:0; font:inherit; text-align:center; cursor:pointer; }
+        .sell_manual:disabled { opacity:.45; cursor:default; }
+        .see-button-settings { margin-top:20px; }
+        .see-button-settings label { display:block; margin:6px 0; }
         .see_inventory_buttons > .see_inventory_buttons, .see_inventory_buttons > #inventory_items_spinner {flex-basis: 100%;}
 
         #see_settings { background: #26566c; margin-right: 10px; height: 24px; line-height:24px; display:inline-block; padding: 0px 6px; }

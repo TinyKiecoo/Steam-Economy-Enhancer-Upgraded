@@ -51,7 +51,7 @@ function legacyRow(id, name = `Item ${id}`, options = {}) {
 }
 
 function response(data, status = 200) {
-    return { ok: status === 200, status, json: async () => data };
+    return { ok: status === 200, status, json: async () => data, clone: () => response(data, status) };
 }
 
 function historyEvent(id, time, name = `History item ${id}`) {
@@ -98,14 +98,14 @@ async function waitFor(check) {
     assert.fail('UI did not settle');
 }
 
-function boot(t, kind = 'activelistings', queries = [], handler = () => assert.fail('Unexpected request'), language = 'en-US') {
-    const dom = new JSDOM(`<!doctype html><html lang="${language}"><head></head><body><main>${navigation}</main></body></html>`, {
+function boot(t, kind = 'activelistings', queries = [], handler = () => assert.fail('Unexpected request'), language = 'en-US', config = {}) {
+    const dom = new JSDOM(`<!doctype html><html lang="${language}"><head></head><body><main>${config.html ?? navigation}</main></body></html>`, {
         url: `https://steamcommunity.com/market/${kind}`,
         runScripts: 'outside-only'
     });
     const { window } = dom;
     const calls = [];
-    window.SSR = { renderContext: { queryData: JSON.stringify({ queries }) } };
+    window.SSR = { renderContext: { queryData: JSON.stringify({ queries }) }, loaderData: config.loaderData || [] };
     window.unsafeWindow = window;
     window.jQuery = { noConflict() {} };
     window.async = {};
@@ -203,7 +203,7 @@ test('market controls and messages use English even when the Steam page language
             app.click('Modify');
         }
         const host = app.document.querySelector('#see-modern-market');
-        assert.doesNotMatch(host.textContent, /\p{Script=Han}/u);
+        assert.doesNotMatch(host.textContent.replace('重新上架选中物品', ''), /\p{Script=Han}/u);
         for (const node of host.querySelectorAll('[aria-label], [title], [placeholder]')) {
             assert.doesNotMatch([node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('placeholder')].join(' '), /\p{Script=Han}/u);
         }
@@ -672,4 +672,221 @@ test('untrusted names render as text; native content can be restored; SPA naviga
     await waitFor(() => app.document.querySelector('#see-modern-market'));
     assert.equal(app.document.querySelectorAll('#see-modern-market').length, 1);
     assert.match(app.document.querySelector('#see-modern-market').textContent, /Buy orders/);
+});
+
+test('totals include quantities, separate currencies, and track hidden selections', t => {
+    const a = entry('1', 329);
+    a.listing.asset.amount = '3';
+    const b = entry('2', 120, { name: 'Beta' });
+    b.listing.currencyid = '2001';
+    const c = entry('3', 100);
+    c.listing.currencyid = '29';
+    const app = boot(t, 'activelistings', [query('activelistings', [a, b, c])]);
+    const totals = () => app.document.querySelector('.see-totals').textContent;
+    assert.match(totals(), /HK\$10.87 buyer pays \/ HK\$9.19 you receive/);
+    assert.match(totals(), /\$1.20 buyer pays \/ \$0.78 you receive/);
+    app.click('Select All');
+    app.search('Beta');
+    assert.match(totals(), /Filtered: \$1.20/);
+    assert.match(totals(), /Selected: HK\$10.87/);
+    assert.equal([...app.document.querySelectorAll('button')].some(b => /^Select (5|25)$/.test(b.textContent)), false);
+    const buy = boot(t, 'buyorders', [query('buyorders', [entry('3', 329, { quantity: 4 })])]);
+    assert.match(buy.document.querySelector('.see-totals').textContent, /Buy order commitment: HK\$13.16/);
+});
+
+const walletRules = { wallet_currency: 29, wallet_market_minimum: '8', wallet_currency_increment: '1' };
+const feeRules = { steam_fee: { fee_rate: 0.05 }, publisher_fee: { fee_rate: 0.1 } };
+const bookData = (ask = 300, count = 20) => ({
+    amtMinSellOrder: ask, amtMaxBuyOrder: ask - 1, eCurrency: 29,
+    rgCompactSellOrders: Array.from({ length: count }, (_, i) => [ask + i, 2 + i]).flat(),
+    rgCompactBuyOrders: Array.from({ length: count }, (_, i) => [ask - 1 - i, 1 + i]).flat()
+});
+
+function repriceService(mutate, { wallet = walletRules, fees = feeRules, ask = 300 } = {}) {
+    return (url, options) => {
+        if (options?.method === 'POST') {
+            assert.equal(url.pathname, '/market/actions');
+            const payload = JSON.parse(options.body);
+            assert.equal(payload.m, 'UpdateSellListingPrice');
+            return mutate(payload);
+        }
+        if (url.pathname === '/market/userbillinginfo') {
+            return response({ wallet_info: wallet });
+        }
+        if (url.pathname === '/market/orderbook') {
+            return response({ data: { success: true, data: bookData(ask) } });
+        }
+        assert.equal(url.searchParams.get('q'), 'QueryFeeStructure');
+        assert.deepEqual(JSON.parse(url.searchParams.get('qp')), [753, 29]);
+        return response({ data: fees });
+    };
+}
+
+test('bulk repricing previews actual fees and submits only direct native price changes', async t => {
+    const ids = [];
+    const app = boot(t, 'activelistings', [query('activelistings', [entry('9007199254740993123'), entry('2')])], repriceService(payload => {
+        ids.push(payload.mp[0]);
+        assert.equal(payload.mp[1], 261);
+        assert.equal(payload.mp[2], 2029);
+        return response({ data: { eResult: 1, eUpdateResult: 1, bRequiresConfirmation: ids.length === 2 } });
+    }));
+    assert.equal(app.click('重新上架选中物品').disabled, true);
+    app.click('Select All');
+    app.search('Item 2');
+    app.click('重新上架选中物品');
+    await waitFor(() => !app.document.querySelector('.see-reprice-dialog button').disabled);
+    const preview = app.document.querySelector('.see-reprice-dialog');
+    assert.equal(preview.querySelectorAll('tbody tr').length, 2);
+    assert.match(preview.textContent, /HK\$3.00HK\$3.00HK\$2.61Ready/);
+    assert.equal(ids.length, 0);
+    app.click('Apply price changes');
+    await waitFor(() => preview.textContent.includes('Updated 2 listings.'));
+    assert.deepEqual(ids, ['9007199254740993123', '2']);
+    assert.match(preview.textContent, /1 require Steam confirmation/);
+    app.click('Close');
+    app.search('');
+    assert.match(app.rows()[0].textContent, /HK\$3.00/);
+    assert.match(app.document.querySelector('.see-totals').textContent, /HK\$6.29 buyer pays/);
+});
+
+test('bulk repricing respects currency increments and fee caps and stops after a failed mutation', async t => {
+    const submitted = [];
+    const app = boot(t, 'activelistings', [query('activelistings', [entry('1'), entry('2'), entry('3')])], repriceService(payload => {
+        submitted.push(payload.mp);
+        return response({ data: { eResult: 1, eUpdateResult: submitted.length === 1 ? 1 : 84 } });
+    }, {
+        wallet: { ...walletRules, wallet_market_minimum: '10', wallet_currency_increment: '10' },
+        fees: { steam_fee: { fee_rate: 0.05, fee_cap: '10' }, publisher_fee: { fee_rate: 0.1, fee_cap: '20' } },
+        ask: 299
+    }));
+    app.click('Select All');
+    app.click('重新上架选中物品');
+    await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('3 / 3 listings ready'));
+    assert.match(app.document.querySelector('.see-reprice-dialog').textContent, /HK\$2.90HK\$2.60Ready/);
+    app.click('Apply price changes');
+    await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('stopped:'));
+    assert.deepEqual(submitted, [['1', 260, 2029], ['2', 260, 2029]]);
+    assert.match(app.document.querySelector('.see-reprice-dialog').textContent, /Refresh to verify/);
+});
+
+test('invalid fee rules and changed currencies never enable bulk submission', async t => {
+    for (const config of [{ fees: {} }, { wallet: { ...walletRules, wallet_currency: 1 } }]) {
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1')])], repriceService(() => assert.fail('No writes expected'), config));
+        app.click('Select All');
+        app.click('重新上架选中物品');
+        await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('Could not prepare'));
+        assert.equal([...app.document.querySelectorAll('button')].find(b => b.textContent === 'Apply price changes').disabled, true);
+    }
+});
+
+function nativeBook(side, book = bookData()) {
+    const compact = book[side === 'sell' ? 'rgCompactSellOrders' : 'rgCompactBuyOrders'];
+    return `<table id="native-${side}"><thead><tr><th>Price</th><th>Quantity</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, i) => `<tr><td>HK$${(compact[i * 2] / 100).toFixed(2)}</td><td>${compact[i * 2 + 1]}</td></tr>`).join('')}</tbody></table>`;
+}
+
+test('item order books expand independently by five, retain per-level quantities and consume native live updates', async t => {
+    let current = bookData();
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => response({ data: { success: true, data: current } }), 'en-US', { html: nativeBook('sell') + nativeBook('buy') });
+    await waitFor(() => app.document.querySelectorAll('.see-item-orderbook').length === 2);
+    const originalFetch = app.window.fetch;
+    const sell = app.document.querySelector('[data-side=sell]');
+    const buy = app.document.querySelector('[data-side=buy]');
+    const count = host => host.querySelectorAll('tbody tr[data-price]').length;
+    assert.equal(count(sell), 5);
+    assert.equal(count(buy), 5);
+    sell.querySelector('button').click();
+    assert.equal(count(sell), 10);
+    sell.querySelector('button').click();
+    assert.equal(count(sell), 15);
+    assert.equal(count(buy), 5);
+    assert.equal(sell.querySelector('tbody tr td:last-child').textContent, '2');
+    assert.equal(sell.querySelector('.see-book-remainder td:last-child').textContent, '95');
+    current = bookData(400);
+    await app.window.fetch(`/market/orderbook?${new URLSearchParams({ q: 'Load', qp: JSON.stringify([753, '753-Sack of Gems']) })}`);
+    await waitFor(() => sell.querySelector('tr[data-price]')?.dataset.price === '400');
+    assert.equal(count(sell), 15);
+    assert.equal(app.calls.length, 2); // One initial read, one simulated native refresh; no competing polling.
+    app.document.querySelector('#native-sell').outerHTML = nativeBook('sell', current);
+    await waitFor(() => app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'));
+    assert.equal(app.document.querySelectorAll('[data-side=sell]').length, 1);
+    assert.equal(count(sell), 15);
+    app.window.history.pushState({}, '', '/market');
+    app.window.dispatchEvent(new app.window.Event('popstate'));
+    assert.notEqual(app.window.fetch, originalFetch);
+    assert.equal(app.document.querySelector('.see-item-orderbook'), null);
+    assert.equal(app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'), false);
+});
+
+test('item own listings reuse selection, filtering, sorting, totals and direct repricing while excluding other items', async t => {
+    const matching = entry('1', 329, { name: 'Sack of Gems' });
+    matching.description.market_hash_name = '753-Sack of Gems';
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [query('activelistings', [matching, entry('2')])], repriceService(() => response({ data: { eResult: 1, eUpdateResult: 1 } })), 'en-US', {
+        html: `<div id="own-panel"><div style="--columns:max-content max-content 1fr"><button>Modify</button></div></div>${nativeBook('sell')}${nativeBook('buy')}`,
+        loaderData: [JSON.stringify({ myOrders: { rgSellOrders: [{ listingid: '1' }], rgBuyOrders: [] } })]
+    });
+    await waitFor(() => app.rows().length === 1);
+    assert.equal(app.rows()[0].dataset.id, '1');
+    assert.equal(app.document.querySelector('#own-panel').hasAttribute('data-see-native-market'), true);
+    app.click('Name');
+    app.search('Sack');
+    assert.equal(app.rows().length, 1);
+    app.click('Select All');
+    app.click('重新上架选中物品');
+    await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('1 / 1 listings ready'));
+    app.click('Close');
+    app.click('Show original Steam list');
+    assert.equal(app.document.querySelector('#own-panel').hasAttribute('data-see-native-market'), false);
+});
+
+test('an unavailable initial order book preserves Steam tables and can recover from native updates', async t => {
+    let fail = true;
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => fail ? response({}, 429) : response({ data: { success: true, data: bookData() } }), 'en-US', { html: nativeBook('sell') });
+    await waitFor(() => app.document.querySelector('#see-modern-market').textContent.includes('429'));
+    assert.equal(app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'), false);
+    fail = false;
+    await app.window.fetch(`/market/orderbook?${new URLSearchParams({ q: 'Load', qp: JSON.stringify([753, '753-Sack of Gems']) })}`);
+    await waitFor(() => app.document.querySelector('.see-item-orderbook'));
+    assert.equal(app.document.querySelector('[data-side=sell]') !== null, true);
+    assert.doesNotMatch(app.document.querySelector('#see-modern-market').textContent, /unavailable/);
+});
+
+test('item personal orders can mount from rendered navigation and remain scoped after all pages finish', async t => {
+    const own = entry('1', 329, { name: 'Gems' });
+    const second = entry('2', 529, { name: 'Gems' });
+    own.description.market_hash_name = second.description.market_hash_name = '753-Sack of Gems';
+    const removed = [];
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [query('activelistings', [own, entry('other')], true), query('buyorders', [])], (url, options) => {
+        if (options?.method === 'POST') {
+            removed.push(url.pathname);
+            return response([]);
+        }
+        if (url.pathname === '/market/orderbook') {
+            return response({ data: { success: true, data: bookData() } });
+        }
+        assert.equal(url.searchParams.get('q'), 'QueryMyListings');
+        return response({ data: { eResult: 1, bMore: false, rgListings: [second, entry('another')] } });
+    }, 'en-US', { html: '<div><div style="--columns:max-content max-content 1fr"><button>Modify</button></div></div>' });
+    await waitFor(() => app.rows().length === 2 && ![...app.document.querySelectorAll('button')].find(b => b.textContent === 'Refresh').disabled);
+    assert.deepEqual(app.rows().map(r => r.dataset.id), ['1', '2']);
+    app.click('Select All');
+    app.click('Remove selected');
+    await waitFor(() => app.rows().length === 0);
+    assert.deepEqual(removed, ['/market/removelisting/1', '/market/removelisting/2']);
+});
+
+test('zero publisher fees use Steam defaults and cancelled previews never write prices', async t => {
+    let writes = 0;
+    const app = boot(t, 'activelistings', [query('activelistings', [entry('1')])], repriceService(() => {
+        writes++;
+        return response({ data: { eResult: 1, eUpdateResult: 1 } });
+    }, { fees: { steam_fee: { fee_rate: 0.05 }, publisher_fee: {} } }));
+    app.click('Select All');
+    app.click('重新上架选中物品');
+    await waitFor(() => app.document.querySelector('.see-reprice-dialog').textContent.includes('1 / 1 listings ready'));
+    assert.match(app.document.querySelector('.see-reprice-dialog').textContent, /HK\$3.00HK\$3.00HK\$2.86Ready/);
+    app.window.confirm = () => false;
+    app.click('Apply price changes');
+    assert.equal(writes, 0);
+    app.click('Close');
+    assert.equal(app.document.querySelector('.see-reprice-dialog'), null);
 });
