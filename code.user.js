@@ -4,7 +4,7 @@
 // @namespace          https://github.com/TinyKiecoo
 // @author             TinyKiecoo
 // @license            MIT
-// @version            7.7.0
+// @version            7.7.1
 // @description        Enhances the Steam Inventory and Steam Market.
 // @description:zh-CN  增强 Steam 库存、社区市场和交易报价。
 // @description:ru     Улучшает инвентарь, торговую площадку и предложения обмена Steam.
@@ -16,7 +16,7 @@
 // @require            https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js
 // @require            https://cdnjs.cloudflare.com/ajax/libs/async/3.2.6/async.js
 // @require            https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js
-// @require            https://raw.githubusercontent.com/kapetan/jquery-observe/ca67b735bb3ae8d678d1843384ebbe7c02466c61/jquery-observe.js
+// @require            https://cdn.jsdelivr.net/gh/kapetan/jquery-observe@ca67b735bb3ae8d678d1843384ebbe7c02466c61/jquery-observe.js
 // @grant              unsafeWindow
 // @homepageURL        https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
 // @homepage           https://github.com/TinyKiecoo/Steam-Economy-Enhancer-Upgraded
