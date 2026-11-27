@@ -4,7 +4,7 @@
 // @namespace    https://github.com/TinyKiecoo
 // @author       TinyKiecoo
 // @license      MIT
-// @version      7.6.0
+// @version      7.6.1
 // @description  Enhances the Steam Inventory and Steam Market.
 // @match        https://steamcommunity.com/id/*/inventory*
 // @match        https://steamcommunity.com/profiles/*/inventory*
@@ -1315,7 +1315,7 @@
                 view.historySearchRun?.controller.abort();
                 view.controller.abort();
                 view.host.remove();
-                view.books?.forEach(book => book.host.remove());
+                view.books?.forEach(detachItemBook);
                 if (view.restoreFetch) {
                     view.restoreFetch();
                 }
@@ -1398,20 +1398,65 @@
             for (let i = 0; i + 1 < compact.length; i += 2) {
                 levels.push({ price: Number(compact[i]), quantity: Number(compact[i + 1]) });
             }
+            const nativeRows = [...book.source.tBodies[0].rows];
+            if (!nativeRows.length) {
+                return;
+            }
+            // Steam's summary adds a translated suffix to its price. Compare with
+            // a regular price without depending on the page's language or currency.
+            const priceLabel = row => row.cells[0].textContent.replace(/[\p{N}\p{P}\p{Z}]/gu, '');
+            const summary = nativeRows.length > 1 && priceLabel(nativeRows.at(-1)) !== priceLabel(nativeRows[0]) ? nativeRows.at(-1) : null;
+            if (book.summary && book.summary !== summary) {
+                book.summary.removeAttribute('data-see-book-summary-hidden');
+            }
+            book.summary = summary;
+            const nativeCount = nativeRows.length - (summary ? 1 : 0);
+            const depth = Math.max(book.depth, nativeCount);
+            const expanded = depth > nativeCount;
+            summary?.toggleAttribute('data-see-book-summary-hidden', expanded);
+            const template = nativeRows[0];
             book.body.replaceChildren();
-            for (const level of levels.slice(0, book.depth)) {
-                const tr = book.body.insertRow();
-                tr.append(element('td', money(level.price, data.eCurrency)), element('td', level.quantity.toLocaleString(locale)));
+            for (const level of levels.slice(nativeCount, depth)) {
+                const tr = itemBookRow(template, money(level.price, data.eCurrency), level.quantity.toLocaleString(locale));
                 tr.dataset.price = String(level.price);
+                book.body.append(tr);
             }
-            const rest = levels.slice(book.depth);
-            if (rest.length) {
-                const tr = book.body.insertRow();
-                tr.className = 'see-book-remainder';
-                tr.append(element('td', `${money(rest[0].price, data.eCurrency)} or ${book.side === 'sell' ? 'more' : 'less'}`), element('td', rest.reduce((sum, level) => sum + level.quantity, 0).toLocaleString(locale)));
+            const rest = levels.slice(depth);
+            if (expanded && rest.length) {
+                const tr = itemBookRow(summary || template, `${money(rest[0].price, data.eCurrency)} or ${book.side === 'sell' ? 'more' : 'less'}`, rest.reduce((sum, level) => sum + level.quantity, 0).toLocaleString(locale));
+                tr.classList.add('see-book-remainder');
+                book.body.append(tr);
             }
-            book.expand.disabled = levels.length <= book.depth;
+            book.expand.disabled = !rest.length;
             book.expand.textContent = rest.length ? 'Show 5 more price levels' : 'All price levels shown';
+        }
+
+        function itemBookRow(template, ...values) {
+            const row = template.cloneNode(true);
+            row.removeAttribute('id');
+            row.removeAttribute('data-see-book-summary-hidden');
+            row.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+            values.forEach((value, index) => {
+                const cell = row.cells[index];
+                const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+                let text = walker.nextNode();
+                if (text) {
+                    text.textContent = value;
+                    while ((text = walker.nextNode())) {
+                        text.textContent = '';
+                    }
+                } else {
+                    cell.append(document.createTextNode(value));
+                }
+            });
+            return row;
+        }
+
+        function detachItemBook(book) {
+            book.body?.remove();
+            book.foot?.remove();
+            book.summary?.removeAttribute('data-see-book-summary-hidden');
+            book.source?.removeAttribute('data-see-orderbook-side');
         }
 
         function attachItemTables(state) {
@@ -1431,29 +1476,34 @@
                     }) || (tables.length === 2 ? sides[tables.indexOf(table)] : 'buy');
                     book = state.books.find(book => book.side === side);
                     if (!book) {
-                        const host = element('div', null, 'see-modern-market see-item-orderbook');
-                        host.dataset.side = side;
-                        const custom = makeTable({ host });
-                        custom.setAttribute('aria-label', side === 'sell' ? 'Sell price levels' : 'Buy price levels');
-                        const head = custom.createTHead().insertRow();
-                        head.append(element('th', 'Price'), element('th', 'Quantity'));
-                        const body = custom.createTBody();
-                        book = { host, body, side, depth: 5 };
-                        const foot = custom.createTFoot().insertRow().insertCell();
-                        foot.colSpan = 2;
-                        book.expand = button('Show 5 more price levels', () => {
-                            book.depth += 5;
-                            renderItemBook(state, book);
-                        }, foot);
+                        book = { side, depth: 5 };
                         state.books.push(book);
+                    } else {
+                        detachItemBook(book);
                     }
                     book.source = table;
+                    book.body = element('tbody');
+                    book.body.setAttribute('data-see-book-extra', '');
+                    book.foot = element('tfoot');
+                    book.foot.setAttribute('data-see-book-controls', '');
+                    const row = itemBookRow(first, '');
+                    row.deleteCell(1);
+                    const cell = row.cells[0];
+                    cell.colSpan = 2;
+                    book.foot.append(row);
+                    // Preserve the native typography wrappers around the new control.
+                    const content = cell.querySelector(':empty') || cell;
+                    content.replaceChildren();
+                    book.expand = button('Show 5 more price levels', () => {
+                        book.depth += 5;
+                        renderItemBook(state, book);
+                    }, content);
                 }
                 used.add(book);
-                // Preserve the native table for React and observe its replacement on updates.
-                table.setAttribute('data-see-native-market', '');
-                if (table.nextElementSibling !== book.host) {
-                    table.after(book.host);
+                // Keep Steam's table, header and first rows in place for React.
+                table.dataset.seeOrderbookSide = book.side;
+                if (book.body.parentElement !== table || book.foot.parentElement !== table) {
+                    table.append(book.body, book.foot);
                 }
                 if (state.orderBook) {
                     renderItemBook(state, book);
@@ -1461,7 +1511,7 @@
             }
             for (const book of state.books) {
                 if (!used.has(book) && !book.source?.isConnected) {
-                    book.host.remove();
+                    detachItemBook(book);
                 }
             }
             const nativeOwn = [...document.querySelectorAll('[style*="max-content max-content 1fr"]')].find(node => !node.closest('.see-modern-market') && node.querySelector('button'));
@@ -1550,10 +1600,7 @@
             loadOrderBook(state, appid, name).then(book => receive({ data: { success: true, data: book } })).catch(error => {
                 if (!state.controller.signal.aborted && !state.orderBook) {
                     // Keep working native tables visible when the initial read fails.
-                    state.books.forEach(book => {
-                        book.source?.removeAttribute('data-see-native-market');
-                        book.host.remove();
-                    });
+                    state.books.forEach(detachItemBook);
                     state.books = [];
                     state.bookError = element('p', `Order book expansion unavailable: ${error.message}`, 'see-status');
                     host.append(state.bookError);
@@ -1563,6 +1610,7 @@
 
         injectCss(`
             [data-see-native-market] { display:none !important; }
+            #see-modern-market:empty { display:none; }
             .see-modern-market { color:#d6d7d8; margin-top:16px; font:14px/1.4 Arial,sans-serif; }
             .see-modern-market .see-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:10px 0; }
             .see-modern-market button, .see-modern-market input, .see-modern-market select { font:inherit; color:#e8edf2; border:1px solid #526779; border-radius:3px; padding:6px 10px; background:#263b4d; }
@@ -1593,10 +1641,10 @@
             .see-status { color:#a9bac9; margin:8px 0; }
             .see-status button { margin-left:8px; }
             .see-totals { padding:10px; border:1px solid #344554; background:#192a39; font-variant-numeric:tabular-nums; }
-            .see-item-orderbook { margin:0; width:100%; }
-            .see-item-orderbook td, .see-item-orderbook th { text-align:right; }
-            .see-item-orderbook tfoot td { padding:0; }
-            .see-item-orderbook tfoot button { width:100%; border:0; border-radius:0; padding:7px 10px; }
+            [data-see-book-summary-hidden] { display:none !important; }
+            [data-see-book-controls] button { all:unset; display:block; box-sizing:border-box; width:100%; color:inherit; font:inherit; text-align:center; cursor:pointer; }
+            [data-see-book-controls] button:disabled { cursor:default; }
+            [data-see-book-controls] button:focus-visible { outline:1px solid currentColor; outline-offset:2px; }
             .see-market-dialog { color:#e8edf2; background:#192a39; border:1px solid #526779; border-radius:6px; max-width:560px; padding:24px; }
             .see-market-dialog::backdrop { background:#000a; }
             .see-reprice-dialog { max-width:min(1100px, 90vw); max-height:85vh; }
@@ -1607,7 +1655,7 @@
             .see-history-search button { align-self:end; }
         `);
         const observer = new MutationObserver(records => {
-            if (records.every(record => record.target.nodeType === 1 && record.target.closest('.see-modern-market'))) {
+            if (records.every(record => record.target.nodeType === 1 && record.target.closest('.see-modern-market, [data-see-book-extra], [data-see-book-controls]'))) {
                 return;
             }
             clearTimeout(scheduled);

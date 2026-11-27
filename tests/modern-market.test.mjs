@@ -781,17 +781,22 @@ test('invalid fee rules and changed currencies never enable bulk submission', as
 
 function nativeBook(side, book = bookData()) {
     const compact = book[side === 'sell' ? 'rgCompactSellOrders' : 'rgCompactBuyOrders'];
-    return `<table id="native-${side}"><thead><tr><th>Price</th><th>Quantity</th></tr></thead><tbody>${Array.from({ length: 5 }, (_, i) => `<tr><td>HK$${(compact[i * 2] / 100).toFixed(2)}</td><td>${compact[i * 2 + 1]}</td></tr>`).join('')}</tbody></table>`;
+    const count = compact.length / 2;
+    const visible = count > 6 ? 5 : count;
+    const row = (price, quantity, className) => `<tr class="${className}"><td class="native-price"><span class="native-value">${price}</span></td><td class="native-quantity"><span class="native-value">${quantity}</span></td></tr>`;
+    return `<table id="native-${side}" class="native-orders"><thead><tr><th><span class="native-heading">Price</span></th><th><span class="native-heading">Quantity</span></th></tr></thead><tbody>${Array.from({ length: visible }, (_, i) => row(`HK$${(compact[i * 2] / 100).toFixed(2)}`, compact[i * 2 + 1], 'native-level')).join('')}${visible < count ? row(`HK$${(compact[visible * 2] / 100).toFixed(2)} or ${side === 'sell' ? 'more' : 'less'}`, compact.filter((_, i) => i % 2 && i > visible * 2).reduce((a, b) => a + b, 0), 'native-summary') : ''}</tbody></table>`;
 }
+
+const priceLevelCount = table => table.querySelectorAll('tbody tr:not(.native-summary):not(.see-book-remainder)').length;
 
 test('item order books expand independently by five, retain per-level quantities and consume native live updates', async t => {
     let current = bookData();
     const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => response({ data: { success: true, data: current } }), 'en-US', { html: nativeBook('sell') + nativeBook('buy') });
-    await waitFor(() => app.document.querySelectorAll('.see-item-orderbook').length === 2);
+    await waitFor(() => app.document.querySelectorAll('[data-see-orderbook-side]').length === 2);
     const originalFetch = app.window.fetch;
-    const sell = app.document.querySelector('[data-side=sell]');
-    const buy = app.document.querySelector('[data-side=buy]');
-    const count = host => host.querySelectorAll('tbody tr[data-price]').length;
+    let sell = app.document.querySelector('[data-see-orderbook-side=sell]');
+    const buy = app.document.querySelector('[data-see-orderbook-side=buy]');
+    const count = priceLevelCount;
     assert.equal(count(sell), 5);
     assert.equal(count(buy), 5);
     sell.querySelector('button').click();
@@ -802,18 +807,22 @@ test('item order books expand independently by five, retain per-level quantities
     assert.equal(sell.querySelector('tbody tr td:last-child').textContent, '2');
     assert.equal(sell.querySelector('.see-book-remainder td:last-child').textContent, '95');
     current = bookData(400);
+    const nativeUpdate = new app.window.DOMParser().parseFromString(nativeBook('sell', current), 'text/html');
+    sell.tBodies[0].replaceWith(nativeUpdate.querySelector('tbody'));
     await app.window.fetch(`/market/orderbook?${new URLSearchParams({ q: 'Load', qp: JSON.stringify([753, '753-Sack of Gems']) })}`);
-    await waitFor(() => sell.querySelector('tr[data-price]')?.dataset.price === '400');
+    await waitFor(() => sell.querySelector('tr[data-price]')?.dataset.price === '405');
     assert.equal(count(sell), 15);
     assert.equal(app.calls.length, 2); // One initial read, one simulated native refresh; no competing polling.
     app.document.querySelector('#native-sell').outerHTML = nativeBook('sell', current);
-    await waitFor(() => app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'));
-    assert.equal(app.document.querySelectorAll('[data-side=sell]').length, 1);
+    await waitFor(() => app.document.querySelector('#native-sell').hasAttribute('data-see-orderbook-side'));
+    sell = app.document.querySelector('#native-sell');
+    assert.equal(app.document.querySelectorAll('[data-see-orderbook-side=sell]').length, 1);
     assert.equal(count(sell), 15);
     app.window.history.pushState({}, '', '/market');
     app.window.dispatchEvent(new app.window.Event('popstate'));
     assert.notEqual(app.window.fetch, originalFetch);
-    assert.equal(app.document.querySelector('.see-item-orderbook'), null);
+    assert.equal(app.document.querySelector('[data-see-orderbook-side]'), null);
+    assert.equal(app.document.querySelector('[data-see-book-extra], [data-see-book-controls], [data-see-book-summary-hidden]'), null);
     assert.equal(app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'), false);
 });
 
@@ -838,6 +847,50 @@ test('item own listings reuse selection, filtering, sorting, totals and direct r
     assert.equal(app.document.querySelector('#own-panel').hasAttribute('data-see-native-market'), false);
 });
 
+test('order book expansion preserves Steam table nodes, styles and typography wrappers', async t => {
+    const styles = '<style>.native-orders {border-collapse:separate; border-spacing:3px; width:275px; background:rgb(8, 11, 14)} .native-orders td {padding:2px 9px; border:1px dotted rgb(70, 80, 90); text-align:center} .native-value {font:12px/17px serif; color:rgb(160, 170, 180)}</style>';
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => response({ data: { success: true, data: bookData() } }), 'en-US', { html: styles + nativeBook('sell') + nativeBook('buy') });
+    const table = app.document.querySelector('#native-sell');
+    const header = table.tHead;
+    const body = table.tBodies[0];
+    const first = body.rows[0];
+    const originalFirst = first.outerHTML;
+    const originalHeader = header.outerHTML;
+    const originalClass = table.className;
+    const style = node => {
+        const css = app.window.getComputedStyle(node);
+        return [css.font, css.color, css.backgroundColor, css.padding, css.border, css.borderCollapse, css.borderSpacing, css.width, css.textAlign];
+    };
+    const originalStyles = [table, first.cells[0], first.cells[0].firstElementChild].map(style);
+    await waitFor(() => table.querySelector('[data-see-book-controls] button'));
+    assert.equal(app.document.querySelector('#native-sell'), table);
+    assert.equal(table.tHead, header);
+    assert.equal(table.tBodies[0], body);
+    assert.equal(table.className, originalClass);
+    assert.equal(header.outerHTML, originalHeader);
+    assert.equal(first.outerHTML, originalFirst);
+    assert.deepEqual([table, first.cells[0], first.cells[0].firstElementChild].map(style), originalStyles);
+    assert.equal(table.closest('.see-modern-market'), null);
+    assert.equal(app.window.getComputedStyle(app.document.querySelector('#see-modern-market')).display, 'none');
+    assert.equal(table.hasAttribute('data-see-native-market'), false);
+    table.querySelector('button').click();
+    assert.equal(priceLevelCount(table), 10);
+    assert.equal(first.outerHTML, originalFirst);
+    const extra = table.querySelector('[data-see-book-extra] tr');
+    assert.equal(extra.className, first.className);
+    assert.equal(extra.cells[0].className, first.cells[0].className);
+    assert.equal(extra.cells[0].firstElementChild.className, first.cells[0].firstElementChild.className);
+    assert.deepEqual(style(extra.cells[0]), style(first.cells[0]));
+    assert.deepEqual(style(extra.cells[0].firstElementChild), style(first.cells[0].firstElementChild));
+    assert.deepEqual([table, first.cells[0], first.cells[0].firstElementChild].map(style), originalStyles);
+    app.window.history.pushState({}, '', '/market');
+    app.window.dispatchEvent(new app.window.Event('popstate'));
+    assert.equal(table.tHead, header);
+    assert.equal(table.tBodies[0], body);
+    assert.equal(table.querySelector('.native-summary').hasAttribute('data-see-book-summary-hidden'), false);
+    assert.equal(table.querySelector('[data-see-book-extra], [data-see-book-controls]'), null);
+});
+
 test('an unavailable initial order book preserves Steam tables and can recover from native updates', async t => {
     let fail = true;
     const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [], () => fail ? response({}, 429) : response({ data: { success: true, data: bookData() } }), 'en-US', { html: nativeBook('sell') });
@@ -845,8 +898,8 @@ test('an unavailable initial order book preserves Steam tables and can recover f
     assert.equal(app.document.querySelector('#native-sell').hasAttribute('data-see-native-market'), false);
     fail = false;
     await app.window.fetch(`/market/orderbook?${new URLSearchParams({ q: 'Load', qp: JSON.stringify([753, '753-Sack of Gems']) })}`);
-    await waitFor(() => app.document.querySelector('.see-item-orderbook'));
-    assert.equal(app.document.querySelector('[data-side=sell]') !== null, true);
+    await waitFor(() => app.document.querySelector('[data-see-orderbook-side]'));
+    assert.equal(app.document.querySelector('[data-see-orderbook-side=sell]') !== null, true);
     assert.doesNotMatch(app.document.querySelector('#see-modern-market').textContent, /unavailable/);
 });
 

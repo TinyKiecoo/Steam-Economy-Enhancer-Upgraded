@@ -36,6 +36,10 @@ Maintained by **TinyKiecoo**, based on [Steam Economy Enhancer by Nuklon](https:
 
 The userscript name and namespace changed in v7.5.0. Disable the old `Steam Economy Enhancer` script and enable only `Steam-Economy-Enhancer-Upgraded` to avoid running both versions.
 
+#### Changes in v7.6.1
+
+Item-detail buy/sell order books keep Steam's original tables, headers, typography, colors and spacing. Expansion adds rows with the native row/cell markup and a bottom control, retaining five-level expansion and live updates. The generic script table theme no longer applies to these order books.
+
 #### Changes in v7.6.0
 
 - Sell listings show buyer-paid and seller-received totals. Buy orders show the commitment for their remaining quantities. Filtered and selected subtotals update with the table; different currencies remain separate.
