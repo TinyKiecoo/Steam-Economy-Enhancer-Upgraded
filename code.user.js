@@ -4,7 +4,7 @@
 // @namespace          https://github.com/TinyKiecoo
 // @author             TinyKiecoo
 // @license            MIT
-// @version            7.7.2
+// @version            7.8.0
 // @description        Enhances the Steam Inventory and Steam Market.
 // @description:zh-CN  增强 Steam 库存、社区市场和交易报价。
 // @description:ru     Улучшает инвентарь, торговую площадку и предложения обмена Steam.
@@ -94,6 +94,18 @@
         const locale = /^(schinese|zh|zh-cn|zh-hans(?:-cn)?)$/.test(language) ? 'zh-CN'
             : /^(russian|ru(?:-ru)?)$/.test(language) ? 'ru-RU' : 'en-US';
         const messages = {
+            'Select overpriced': ['选中高价物品', 'Выбрать завышенные'],
+            Overpriced: ['价格偏高', 'Завышенная цена'],
+            Underpriced: ['价格偏低', 'Заниженная цена'],
+            'Fair price': ['价格适中', 'Справедливая цена'],
+            'Price not checked': ['价格尚未检查', 'Цена не проверена'],
+            'Reference price: {p0} · {p1}': ['参考价：{p0} · {p1}', 'Ориентир: {p0} · {p1}'],
+            'Checking prices: {p0} / {p1}': ['正在检查价格：{p0} / {p1}', 'Проверка цен: {p0} / {p1}'],
+            'Some prices could not be checked.': ['部分价格无法检查。', 'Не удалось проверить некоторые цены.'],
+            'Steam price history is unavailable.': ['无法获取 Steam 成交价格历史。', 'История цен Steam недоступна.'],
+            'Price check complete. Red: overpriced; yellow: underpriced; green: fair.': ['价格检查完成。红色：偏高；黄色：偏低；绿色：适中。', 'Проверка завершена. Красный: завышенная цена; жёлтый: заниженная; зелёный: справедливая.'],
+            'Price check stopped: {p0} Refresh to retry.': ['价格检查已停止：{p0} 刷新可重试。', 'Проверка цен остановлена: {p0} Обновите для повтора.'],
+            'Show sell-listing price colors:': ['显示在售挂单价格标色：', 'Выделять цены своих лотов цветом:'],
             'Steam Community Items': [
                 'Steam 社区物品',
                 'Предметы сообщества Steam'
@@ -968,6 +980,56 @@
     }
     //#endregion Localization
 
+    //#region Market reference pricing
+    // Port of upstream's unoffset market price calculation (Nuklon/SEE v7.3.2).
+    // Prices in history are cents; fee conversion is supplied by the caller.
+    function calculateMarketReference(history, book, settings, beforeFees, now = Date.now()) {
+        let value = 0;
+        let volume = 0;
+        for (const [date, price, quantity] of history || []) {
+            if (new Date(date).getTime() > now - settings.hours * 3600000) {
+                value += price * quantity;
+                volume += quantity;
+            }
+        }
+        const historyPrice = volume ? beforeFees(Math.floor(value / volume)) : 0;
+        let listingPrice = book?.amtMinSellOrder == null ? 0 : beforeFees(book.amtMinSellOrder);
+        const levels = book?.rgCompactSellOrders || [];
+        if (settings.ignoreLowest && levels.length >= 4) {
+            const secondPrice = beforeFees(levels[2]);
+            const secondQuantity = Number(levels[3]);
+            const ratio = 100 * (Number(levels[1]) / secondQuantity);
+            if (secondPrice > listingPrice && (
+                secondQuantity >= 1000 && ratio <= 5
+                || secondQuantity < 1000 && ratio <= 10
+                || secondQuantity < 100 && ratio <= 15
+                || secondQuantity < 50 && ratio <= 20
+                || secondQuantity < 25 && ratio <= 25
+                || secondQuantity < 10 && ratio <= 30
+            )) {
+                listingPrice = secondPrice;
+            }
+        }
+        const buyPrice = book ? beforeFees(book.amtMaxBuyOrder) : 0;
+        let calculated;
+        if (settings.algorithm === 3 && buyPrice !== -2) {
+            calculated = buyPrice;
+        } else if ((historyPrice < listingPrice || settings.algorithm !== 1) && settings.algorithm !== 4) {
+            calculated = listingPrice;
+        } else {
+            calculated = historyPrice;
+        }
+        if (calculated === 0) {
+            calculated = settings.maximum;
+        }
+        calculated = Math.min(Math.max(calculated, settings.minimum), settings.maximum);
+        if (settings.algorithm !== 4 && buyPrice > calculated) {
+            calculated = buyPrice;
+        }
+        return calculated;
+    }
+    //#endregion Market reference pricing
+
     //#region Modern market
     function initializeModernMarket() {
         const currencyCodes = 'USD GBP EUR CHF RUB PLN BRL JPY NOK IDR MYR PHP SGD THB VND KRW TRY UAH MXN CAD AUD NZD CNY INR CLP PEN COP ZAR HKD TWD SAR AED SEK ARS ILS BYN KZT KWD QAR CRC UYU BGN HRK CZK DKK HUF RON'.split(' ');
@@ -1202,6 +1264,9 @@
         }
 
         async function loadOrders(state, fresh = false) {
+            state.priceRun?.controller.abort();
+            state.priceRun = null;
+            state.pricingNotice = '';
             state.loading = true;
             state.notice = '';
             renderOrders(state);
@@ -1301,6 +1366,7 @@
                 state.selected = new Set([...state.selected].filter(id => available.has(id)));
                 state.loading = false;
                 renderOrders(state);
+                checkListingPrices(state);
             } catch (error) {
                 showError(state, error, () => loadOrders(state, true));
             }
@@ -1350,6 +1416,7 @@
                 });
             }
             state.body.replaceChildren();
+            state.priceCells = new Map();
             for (const row of rows) {
                 const tr = element('tr');
                 tr.dataset.id = row.id;
@@ -1371,6 +1438,10 @@
                 tr.append(td, itemCell(row));
                 tr.append(element('td', state.kind === 'buyorders' ? row.quantity : row.dateText));
                 const price = element('td', row.priceText);
+                if (state.kind !== 'buyorders' && priceColorsEnabled()) {
+                    renderPriceRating(row, price);
+                    state.priceCells.set(row, price);
+                }
                 if (row.sellerText) {
                     price.append(element('small', `(${row.sellerText})`));
                 }
@@ -1433,9 +1504,171 @@
             state.refresh.disabled = state.loading || state.busy;
             if (state.reprice) {
                 state.reprice.disabled = state.loading || state.busy || !state.selected.size;
+                state.selectOverpriced.disabled = state.busy || !rows.some(row => priceRating(row) === 'overpriced');
+                state.pricingStatus.textContent = state.pricingNotice || '';
             }
             state.count.textContent = t('Showing {p0} / {p1} items · {p2} selected', { p0: rows.length, p1: state.rows.length, p2: state.selected.size });
             renderTotals(state, rows);
+        }
+
+        function pricingSetting(name, fallback) {
+            try {
+                const stored = localStorage.getItem(name);
+                const value = stored == null ? fallback : Number(stored);
+                return Number.isFinite(value) ? value : fallback;
+            } catch {
+                return fallback;
+            }
+        }
+
+        function priceColorsEnabled() {
+            return pricingSetting('SETTING_MARKET_PRICE_COLORS', 1) === 1;
+        }
+
+        function priceRating(row) {
+            return row.referencePrice == null ? 'unchecked' : row.price > row.referencePrice ? 'overpriced' : row.price < row.referencePrice ? 'underpriced' : 'fair';
+        }
+
+        function priceRatingLabel(row) {
+            return { overpriced: t('Overpriced'), underpriced: t('Underpriced'), fair: t('Fair price'), unchecked: t('Price not checked') }[priceRating(row)];
+        }
+
+        function renderPriceRating(row, cell) {
+            cell.dataset.seePriceRating = priceRating(row);
+            cell.title = row.referencePrice == null
+                ? t('Price not checked')
+                : t('Reference price: {p0} · {p1}', { p0: money(row.referencePrice, row.currency), p1: priceRatingLabel(row) });
+        }
+
+        async function loadPricingWallet(state, signal) {
+            const wallet = (await jsonRequest('/market/userbillinginfo', state, { signal })).wallet_info;
+            if (!wallet || !Number.isSafeInteger(Number(wallet.wallet_market_minimum)) || Number(wallet.wallet_market_minimum) < 1 || !Number.isSafeInteger(Number(wallet.wallet_currency_increment)) || Number(wallet.wallet_currency_increment) < 1) {
+                throw new Error(t('Steam wallet rounding rules are unavailable.'));
+            }
+            return wallet;
+        }
+
+        async function loadFeeRules(state, appid, currency, signal) {
+            const params = new URLSearchParams({ q: 'QueryFeeStructure', qp: JSON.stringify([appid, currency]) });
+            const fees = (await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' }, signal })).data;
+            if (![fees?.steam_fee, fees?.publisher_fee].every(fee => fee && Number.isFinite(Number(fee.fee_rate ?? 0)) && Number(fee.fee_rate ?? 0) >= 0 && (fee.fee_cap == null || Number.isFinite(Number(fee.fee_cap))))) {
+                throw new Error(t('Steam fee rules are unavailable.'));
+            }
+            return fees;
+        }
+
+        async function checkListingPrices(state) {
+            if (state.kind === 'buyorders' || state.controller.signal.aborted || !priceColorsEnabled() || !state.rows.length) {
+                return;
+            }
+            const run = { controller: new AbortController() };
+            state.priceRun = run;
+            const signal = AbortSignal.any([state.controller.signal, run.controller.signal]);
+            const groups = new Map();
+            let completed = 0;
+            let failed = 0;
+            const publish = () => {
+                if (!signal.aborted && state.priceRun === run && !state.busy) {
+                    // Keep checkbox focus and scroll position while background checks finish.
+                    state.priceCells.forEach((cell, row) => renderPriceRating(row, cell));
+                    updateSelection(state);
+                }
+            };
+            try {
+                for (const row of state.rows) {
+                    const parts = new URL(row.href, location.origin).pathname.split('/');
+                    const appid = Number(row.description.appid || parts[3]);
+                    const name = row.description.market_hash_name || decodeURIComponent(parts[4] || '');
+                    const currency = Number(row.currency) >= 2000 ? Number(row.currency) - 2000 : Number(row.currency);
+                    if (!appid || !name || !currency) {
+                        failed++;
+                        continue;
+                    }
+                    const key = JSON.stringify([appid, name, currency]);
+                    if (!groups.has(key)) {
+                        groups.set(key, { appid, name, currency, rows: [] });
+                    }
+                    groups.get(key).rows.push(row);
+                }
+                if (!groups.size) {
+                    state.pricingNotice = t('Some prices could not be checked.');
+                    publish();
+                    return;
+                }
+                const wallet = await loadPricingWallet(state, signal);
+                const feesByApp = new Map();
+                for (const group of groups.values()) {
+                    signal.throwIfAborted();
+                    while (state.busy) {
+                        await pause(1000, signal);
+                    }
+                    state.pricingNotice = t('Checking prices: {p0} / {p1}', { p0: completed, p1: groups.size });
+                    publish();
+                    try {
+                        if (Number(wallet.wallet_currency) !== group.currency) {
+                            throw new Error(t('Order book currency does not match the listing.'));
+                        }
+                        const feeKey = JSON.stringify([group.appid, group.currency]);
+                        if (!feesByApp.has(feeKey)) {
+                            feesByApp.set(feeKey, await loadFeeRules(state, group.appid, group.currency, signal));
+                            await pause(1000, signal);
+                        }
+                        const fees = feesByApp.get(feeKey);
+                        const book = await loadOrderBook(state, group.appid, group.name, signal);
+                        if (Number(book.eCurrency) !== group.currency) {
+                            throw new Error(t('Order book currency does not match the listing.'));
+                        }
+                        const algorithm = pricingSetting('SETTING_PRICE_ALGORITHM', 1);
+                        let history = [];
+                        if (algorithm === 1 || algorithm === 4) {
+                            await pause(1000, signal);
+                            const params = new URLSearchParams({ appid: group.appid, market_hash_name: group.name });
+                            const response = await jsonRequest(`/market/pricehistory/?${params}`, state, { signal });
+                            if (!response.success || !Array.isArray(response.prices)) {
+                                throw new Error(t('Steam price history is unavailable.'));
+                            }
+                            history = response.prices.map(([date, price, count]) => [date, Number(price) * 100, Number.parseInt(count, 10)]);
+                            if (history.some(([date, price, count]) => !Number.isFinite(new Date(date).getTime()) || !Number.isFinite(price) || !Number.isFinite(count) || price < 0 || count < 0)) {
+                                throw new Error(t('Steam price history is unavailable.'));
+                            }
+                        }
+                        const beforeFees = price => quoteAtAsk(Math.round(Number(price)), fees, wallet)?.seller ?? 1;
+                        for (const row of group.rows) {
+                            const item = { ...row.description, type: row.description.type || row.type };
+                            const category = getIsTradingCard(item) ? getIsFoilTradingCard(item) ? 'FOIL' : 'NORMAL' : 'MISC';
+                            const seller = calculateMarketReference(history, book, {
+                                algorithm,
+                                hours: pricingSetting('SETTING_PRICE_HISTORY_HOURS', 12),
+                                ignoreLowest: pricingSetting('SETTING_PRICE_IGNORE_LOWEST_Q', 1) === 1,
+                                minimum: beforeFees(pricingSetting(`SETTING_MIN_${category}_PRICE`, category === 'FOIL' ? 0.15 : 0.05) * 100),
+                                maximum: beforeFees(pricingSetting(`SETTING_MAX_${category}_PRICE`, category === 'NORMAL' ? 2.5 : 10) * 100)
+                            }, beforeFees);
+                            signal.throwIfAborted();
+                            if (state.priceRun !== run) {
+                                return;
+                            }
+                            row.referencePrice = listingQuote(seller, fees, wallet).price;
+                        }
+                    } catch (error) {
+                        if (signal.aborted || [401, 403, 429].includes(error.status)) {
+                            throw error;
+                        }
+                        failed += group.rows.length;
+                    }
+                    completed++;
+                    publish();
+                    if (completed < groups.size) {
+                        await pause(1000, signal);
+                    }
+                }
+                state.pricingNotice = failed ? t('Some prices could not be checked.') : t('Price check complete. Red: overpriced; yellow: underpriced; green: fair.');
+            } catch (error) {
+                if (!signal.aborted) {
+                    state.pricingNotice = t('Price check stopped: {p0} Refresh to retry.', { p0: error.message });
+                }
+            } finally {
+                publish();
+            }
         }
 
         function renderTotals(state, visible) {
@@ -1655,10 +1888,7 @@
             state.host.append(dialog);
             dialog.showModal();
             try {
-                const wallet = (await jsonRequest('/market/userbillinginfo', state, { signal: controller.signal })).wallet_info;
-                if (!wallet || !Number.isSafeInteger(Number(wallet.wallet_market_minimum)) || Number(wallet.wallet_market_minimum) < 1 || !Number.isSafeInteger(Number(wallet.wallet_currency_increment)) || Number(wallet.wallet_currency_increment) < 1) {
-                    throw new Error(t('Steam wallet rounding rules are unavailable.'));
-                }
+                const wallet = await loadPricingWallet(state, controller.signal);
                 const cache = new Map();
                 const feeCache = new Map();
                 for (const row of rows) {
@@ -1681,14 +1911,9 @@
                         }
                         const feeKey = JSON.stringify([appid, currency]);
                         if (!feeCache.has(feeKey)) {
-                            const params = new URLSearchParams({ q: 'QueryFeeStructure', qp: JSON.stringify([appid, currency]) });
-                            const result = await jsonRequest(`/market/actions?${params}`, state, { headers: { 'x-valve-request-type': 'queryAction' }, signal: controller.signal });
-                            feeCache.set(feeKey, result.data);
+                            feeCache.set(feeKey, await loadFeeRules(state, appid, currency, controller.signal));
                         }
                         const fees = feeCache.get(feeKey);
-                        if (![fees?.steam_fee, fees?.publisher_fee].every(fee => fee && Number.isFinite(Number(fee.fee_rate ?? 0)) && Number(fee.fee_rate ?? 0) >= 0 && (fee.fee_cap == null || Number.isFinite(Number(fee.fee_cap))))) {
-                            throw new Error(t('Steam fee rules are unavailable.'));
-                        }
                         cache.set(key, { ask: Number(book.amtMinSellOrder), fees });
                         await pause(1000, controller.signal);
                     }
@@ -1776,6 +2001,12 @@
             if (state.kind !== 'buyorders') {
                 state.reprice = button(t('Reprice selected'), () => repriceOrders(state), toolbar);
                 state.reprice.title = t('Reprice selected listings to the current lowest sell price');
+                state.selectOverpriced = button(t('Select overpriced'), () => {
+                    matches(state).filter(row => priceRating(row) === 'overpriced').forEach(row => state.selected.add(row.id));
+                    renderOrders(state);
+                }, toolbar);
+                state.pricingStatus = element('p', '', 'see-status see-price-status');
+                state.pricingStatus.setAttribute('aria-live', 'polite');
             }
             const select = checked => {
                 if (checked) {
@@ -1793,6 +2024,9 @@
             state.totals = element('div', '', 'see-totals');
             state.totals.setAttribute('aria-live', 'polite');
             state.host.append(state.totals, toolbar, state.count);
+            if (state.pricingStatus) {
+                state.host.append(state.pricingStatus);
+            }
             const table = makeTable(state);
             const head = table.createTHead().insertRow();
             const selection = element('th');
@@ -2547,6 +2781,10 @@
             .see-table a:hover { color:#66c0f4; text-decoration:underline; }
             .see-table small { display:block; color:#99aaba; font-size:12px; }
             .see-table td:not(.see-item) { white-space:nowrap; }
+            .see-table [data-see-price-rating=overpriced] { background:#813030; }
+            .see-table [data-see-price-rating=underpriced] { background:#837433; }
+            .see-table [data-see-price-rating=fair] { background:#496424; }
+            .see-table [data-see-price-rating=unchecked] { background:#26566c; }
             .see-modern-market [aria-current=page] { background:#42738c; opacity:1 !important; }
             .see-status { color:#a9bac9; margin:8px 0; }
             .see-status button { margin-left:8px; }
@@ -2802,6 +3040,7 @@
     const SETTING_PRICE_ALGORITHM = 'SETTING_PRICE_ALGORITHM';
     const SETTING_PRICE_IGNORE_LOWEST_Q = 'SETTING_PRICE_IGNORE_LOWEST_Q';
     const SETTING_PRICE_HISTORY_HOURS = 'SETTING_PRICE_HISTORY_HOURS';
+    const SETTING_MARKET_PRICE_COLORS = 'SETTING_MARKET_PRICE_COLORS';
     const SETTING_INVENTORY_PRICE_LABELS = 'SETTING_INVENTORY_PRICE_LABELS';
     const SETTING_TRADEOFFER_PRICE_LABELS = 'SETTING_TRADEOFFER_PRICE_LABELS';
     const SETTING_QUICK_SELL_BUTTONS = 'SETTING_QUICK_SELL_BUTTONS';
@@ -2830,6 +3069,7 @@
         SETTING_PRICE_ALGORITHM: 1,
         SETTING_PRICE_IGNORE_LOWEST_Q: 1,
         SETTING_PRICE_HISTORY_HOURS: 12,
+        SETTING_MARKET_PRICE_COLORS: 1,
         SETTING_INVENTORY_PRICE_LABELS: 1,
         SETTING_TRADEOFFER_PRICE_LABELS: 1,
         SETTING_QUICK_SELL_BUTTONS: 1,
@@ -5375,6 +5615,10 @@
                 <input type="number" step="0.01" id="${SETTING_PRICE_MIN_LIST_PRICE}" value=${getSettingWithDefault(SETTING_PRICE_MIN_LIST_PRICE)}>
             </div>
             <div style="margin-top:24px">
+                ${t('Show sell-listing price colors:')}&nbsp;
+                <input type="checkbox" id="${SETTING_MARKET_PRICE_COLORS}" ${getSettingWithDefault(SETTING_MARKET_PRICE_COLORS) == 1 ? 'checked' : ''}>
+            </div>
+            <div style="margin-top:6px">
                 ${t('Show price labels in inventory:')}&nbsp;
                 <input type="checkbox" id="${SETTING_INVENTORY_PRICE_LABELS}" ${getSettingWithDefault(SETTING_INVENTORY_PRICE_LABELS) == 1 ? 'checked' : ''}>
             </div>
@@ -5434,6 +5678,7 @@
             setSetting(SETTING_PRICE_ALGORITHM, $(`#${SETTING_PRICE_ALGORITHM}`, price_options).val());
             setSetting(SETTING_PRICE_IGNORE_LOWEST_Q, $(`#${SETTING_PRICE_IGNORE_LOWEST_Q}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_PRICE_HISTORY_HOURS, $(`#${SETTING_PRICE_HISTORY_HOURS}`, price_options).val());
+            setSetting(SETTING_MARKET_PRICE_COLORS, $(`#${SETTING_MARKET_PRICE_COLORS}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_INVENTORY_PRICE_LABELS, $(`#${SETTING_INVENTORY_PRICE_LABELS}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_TRADEOFFER_PRICE_LABELS, $(`#${SETTING_TRADEOFFER_PRICE_LABELS}`, price_options).prop('checked') ? 1 : 0);
             setSetting(SETTING_QUICK_SELL_BUTTONS, $(`#${SETTING_QUICK_SELL_BUTTONS}`, price_options).prop('checked') ? 1 : 0);

@@ -171,13 +171,18 @@ test('inventory controls, selection counts and settings follow the Steam languag
     }
 });
 
-test('obsolete market pricing settings are ignored and absent from the configuration modal', async t => {
+test('automatic relisting stays removed and the restored market color setting persists', async t => {
     const app = await inventory(t, { SETTING_RELIST_AUTOMATICALLY: 1, SETTING_PRICE_MIN_CHECK_PRICE: 10 });
     app.$('#see_settings a').trigger('click');
     const modal = app.w.document.querySelector('.newmodal');
     assert.equal(modal.querySelector('#SETTING_RELIST_AUTOMATICALLY, #SETTING_PRICE_MIN_CHECK_PRICE, .market_relist_auto'), null);
     assert.doesNotMatch(modal.textContent, /overpriced|underpriced|Don't check market listings/i);
     assert.ok(modal.querySelector('#SETTING_PRICE_ALGORITHM')); // Inventory selling still uses this setting.
+    const colors = modal.querySelector('#SETTING_MARKET_PRICE_COLORS');
+    assert.equal(colors.checked, true);
+    colors.checked = false;
+    app.save();
+    assert.equal(app.w.localStorage.getItem('SETTING_MARKET_PRICE_COLORS'), '0');
     assert.deepEqual(app.errors, []);
 });
 

@@ -127,6 +127,10 @@ function boot(t, kind = 'activelistings', queries = [], handler = () => assert.f
         delete window.SSR;
     }
     window.unsafeWindow = window;
+    window.localStorage.setItem('SETTING_MARKET_PRICE_COLORS', config.pricing ? '1' : '0');
+    for (const [key, value] of Object.entries(config.settings || {})) {
+        window.localStorage.setItem(key, value);
+    }
     window.jQuery = { noConflict() {} };
     window.async = {};
     window.AbortSignal = AbortSignal;
@@ -720,6 +724,174 @@ const bookData = (ask = 300, count = 20) => ({
     amtMinSellOrder: ask, amtMaxBuyOrder: ask - 1, eCurrency: 29,
     rgCompactSellOrders: Array.from({ length: count }, (_, i) => [ask + i, 2 + i]).flat(),
     rgCompactBuyOrders: Array.from({ length: count }, (_, i) => [ask - 1 - i, 1 + i]).flat()
+});
+
+function pricingService({ history = [[new Date().toISOString(), 3, '1']], book = bookData(250), wallet = { ...walletRules, wallet_market_minimum: '1' }, fees = { steam_fee: {}, publisher_fee: {} } } = {}) {
+    return (url, options) => {
+        assert.notEqual(options?.method, 'POST', 'Price checking and selection must never modify listings');
+        if (url.pathname === '/market/userbillinginfo') {
+            return response({ wallet_info: wallet });
+        }
+        if (url.pathname === '/market/orderbook') {
+            return response({ data: { success: true, data: book } });
+        }
+        if (url.pathname === '/market/pricehistory/') {
+            return response({ success: true, prices: history });
+        }
+        assert.equal(url.searchParams.get('q'), 'QueryFeeStructure');
+        return response({ data: fees });
+    };
+}
+
+const pricingDone = app => /complete|could not|stopped/i.test(app.document.querySelector('.see-price-status')?.textContent || '');
+
+test('sell prices use the upstream reference rather than typical prices; selection is filtered and additive', async t => {
+    const entries = [400, 300, 200, 450].map((price, i) => entry(String(i + 1), price, { name: 'Same Item', type: 'Other', typical: 999 }));
+    const app = boot(t, 'activelistings', [query('activelistings', entries)], pricingService(), 'en-US', { pricing: true, settings: { SETTING_PRICE_OFFSET: 99 } });
+    const checkbox = app.rows()[2].querySelector('input');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new app.window.Event('change'));
+    checkbox.focus();
+    assert.equal(app.click('Select overpriced').disabled, true);
+    await waitFor(() => pricingDone(app));
+    assert.equal(app.document.activeElement, checkbox);
+    const cells = app.rows().map(row => row.querySelector('[data-see-price-rating]'));
+    assert.deepEqual(cells.map(cell => cell.dataset.seePriceRating), ['overpriced', 'fair', 'underpriced', 'overpriced']);
+    assert.deepEqual(cells.slice(0, 3).map(cell => app.window.getComputedStyle(cell).backgroundColor), ['rgb(129, 48, 48)', 'rgb(73, 100, 36)', 'rgb(131, 116, 51)']);
+    assert.match(cells[0].title, /Reference price: HK\$3.00 · Overpriced/);
+    assert.equal(app.calls.filter(call => call.url.startsWith('/market/orderbook')).length, 1);
+    assert.equal(app.calls.filter(call => call.url.startsWith('/market/pricehistory/')).length, 1);
+    app.search('4.00');
+    app.click('Select overpriced');
+    app.search('');
+    assert.deepEqual(app.rows().filter(row => row.querySelector('input').checked).map(row => row.dataset.id), ['1', '3']);
+    app.click('Select overpriced');
+    assert.deepEqual(app.rows().filter(row => row.querySelector('input').checked).map(row => row.dataset.id), ['1', '3', '4']);
+    assert.equal(app.document.querySelector('dialog'), null);
+});
+
+test('fee-aware comparison uses buyer-paid unit prices and configured card bounds', async t => {
+    const card = entry('1', 300);
+    const foil = entry('2', 300);
+    foil.description.tags.push({ category: 'cardborder', internal_name: 'cardborder_1' });
+    const app = boot(t, 'activelistings', [query('activelistings', [card, foil])], pricingService({ fees: feeRules, wallet: walletRules, book: bookData(200), history: [[new Date().toISOString(), 3.004, '2']] }), 'en-US', { pricing: true });
+    await waitFor(() => pricingDone(app));
+    const cells = app.rows().map(row => row.querySelector('[data-see-price-rating]'));
+    assert.match(cells[0].title, /HK\$2.50 · Overpriced/);
+    assert.match(cells[1].title, /HK\$3.00 · Fair price/);
+});
+
+test('listing-only and buy-order algorithms skip unused price history requests', async t => {
+    for (const [algorithm, reference] of [[2, '2.50'], [3, '2.49']]) {
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 400, { type: 'Other' })])], pricingService(), 'en-US', { pricing: true, settings: { SETTING_PRICE_ALGORITHM: algorithm } });
+        await waitFor(() => pricingDone(app));
+        assert.ok(app.rows()[0].querySelector('[data-see-price-rating]').title.includes(`HK$${reference}`));
+        assert.equal(app.calls.some(call => call.url.startsWith('/market/pricehistory/')), false);
+    }
+});
+
+test('unavailable history and rate limits remain unchecked and cannot select unknown prices', async t => {
+    for (const status of [200, 429]) {
+        const normal = pricingService();
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1'), entry('2')])], (url, options) => url.pathname === '/market/pricehistory/' ? response({ success: false }, status) : normal(url, options), 'en-US', { pricing: true });
+        await waitFor(() => pricingDone(app));
+        assert.ok(app.rows().every(row => row.querySelector('[data-see-price-rating]').dataset.seePriceRating === 'unchecked'));
+        assert.equal(app.click('Select overpriced').disabled, true);
+        assert.equal(app.document.querySelectorAll('tbody input:checked').length, 0);
+        assert.equal(app.calls.filter(call => call.url.startsWith('/market/pricehistory/')).length, status === 429 ? 1 : 2);
+        if (status === 429) {
+            assert.match(app.document.querySelector('.see-price-status').textContent, /429.*Refresh to retry/);
+        }
+    }
+});
+
+test('price checks publish each completed item, preserve selections and abort on navigation', async t => {
+    const normal = pricingService();
+    let pending;
+    let signal;
+    const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 400, { type: 'Other' }), entry('2', 400, { type: 'Other' })])], (url, options) => {
+        if (url.pathname === '/market/orderbook' && JSON.parse(url.searchParams.get('qp'))[1].endsWith('Item 2')) {
+            signal = options.signal;
+            return new Promise(resolve => {
+                pending = resolve;
+            });
+        }
+        return normal(url, options);
+    }, 'en-US', { pricing: true });
+    app.click('Select All');
+    await waitFor(() => pending);
+    assert.deepEqual(app.rows().map(row => row.querySelector('[data-see-price-rating]').dataset.seePriceRating), ['overpriced', 'unchecked']);
+    assert.ok(app.rows().every(row => row.querySelector('input').checked));
+    app.window.history.pushState({}, '', '/market/buyorders');
+    app.window.dispatchEvent(new app.window.Event('popstate'));
+    await waitFor(() => signal.aborted);
+    pending(response({ data: { success: true, data: bookData(100) } }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(app.document.querySelector('[data-see-price-rating=overpriced]'), null);
+});
+
+test('price selection and tooltips follow Steam language; buy orders never receive sell-price colors', async t => {
+    for (const [language, button, tooltip] of [['zh-CN', '选中高价物品', /参考价：.*价格偏高/], ['ru-RU', 'Выбрать завышенные', /Ориентир:.*Завышенная цена/]]) {
+        const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 400, { type: 'Other' })])], pricingService(), language, { pricing: true });
+        await waitFor(() => app.document.querySelector('[data-see-price-rating=overpriced]'));
+        assert.match(app.rows()[0].querySelector('td[title]').title, tooltip);
+        app.click(button);
+        assert.equal(app.rows()[0].querySelector('input').checked, true);
+    }
+    const buy = boot(t, 'buyorders', [query('buyorders', [entry('1')])], undefined, 'en-US', { pricing: true });
+    assert.equal(buy.document.querySelector('[data-see-price-rating], .see-price-status'), null);
+    assert.equal(buy.calls.length, 0);
+    const disabled = boot(t, 'activelistings', [query('activelistings', [entry('1')])]);
+    assert.equal(disabled.document.querySelector('[data-see-price-rating]'), null);
+    assert.equal(disabled.click('Select overpriced').disabled, true);
+    assert.equal(disabled.calls.length, 0);
+});
+
+test('refresh aborts old price checks and late responses cannot recolor replacement rows', async t => {
+    const normal = pricingService();
+    let pending;
+    let oldSignal;
+    let books = 0;
+    const app = boot(t, 'activelistings', [query('activelistings', [entry('1', 400, { type: 'Other' })])], (url, options) => {
+        if (url.searchParams.get('q') === 'QueryMyListings') {
+            return response({ data: { eResult: 1, rgListings: [entry('1', 200, { type: 'Other' })], bMore: false } });
+        }
+        if (url.pathname === '/market/orderbook' && ++books === 1) {
+            oldSignal = options.signal;
+            return new Promise(resolve => {
+                pending = resolve;
+            });
+        }
+        return normal(url, options);
+    }, 'en-US', { pricing: true });
+    await waitFor(() => pending);
+    app.click('Refresh');
+    await waitFor(() => pricingDone(app));
+    assert.equal(oldSignal.aborted, true);
+    pending(response({ data: { success: true, data: bookData(100) } }));
+    await new Promise(resolve => setTimeout(resolve, 20));
+    const cell = app.rows()[0].querySelector('[data-see-price-rating]');
+    assert.equal(cell.dataset.seePriceRating, 'underpriced');
+    assert.match(cell.title, /HK\$3.00/);
+});
+
+test('item-detail own sell listings receive colors and price selection without changing native books', async t => {
+    const matching = entry('1', 400, { name: 'Sack of Gems', type: 'Other' });
+    matching.description.market_hash_name = '753-Sack of Gems';
+    const app = boot(t, 'listings/753/753-Sack%20of%20Gems', [query('activelistings', [matching, entry('2')])], pricingService(), 'en-US', {
+        pricing: true,
+        html: `<div id="own-panel"><div style="--columns:max-content max-content 1fr"><button>Modify</button></div></div>${nativeBook('sell')}${nativeBook('buy')}`,
+        loaderData: [JSON.stringify({ myOrders: { rgSellOrders: [{ listingid: '1' }], rgBuyOrders: [] } })]
+    });
+    await waitFor(() => pricingDone(app));
+    assert.equal(app.rows().length, 1);
+    assert.equal(app.rows()[0].querySelector('[data-see-price-rating]').dataset.seePriceRating, 'overpriced');
+    app.click('Select overpriced');
+    assert.equal(app.rows()[0].querySelector('input').checked, true);
+    for (const table of app.document.querySelectorAll('.native-orders')) {
+        assert.equal(table.querySelector('[data-see-price-rating]'), null);
+        assert.equal(table.className, 'native-orders');
+    }
 });
 
 function repriceService(mutate, { wallet = walletRules, fees = feeRules, ask = 300 } = {}) {
